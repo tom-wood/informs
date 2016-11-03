@@ -544,3 +544,8 @@ def get_log_data(log_fpath):
 			          'MFC2_set', 'MFC2', 'Main', 'Main_set',
 				  'Aux'], skiprows=1)
     return log_data
+
+def get_T_ms(log_data, fit_times):
+    indices = np.searchsorted(log_data['Time'].values / 60, fit_times)
+    indices = np.where(indices < log_data.shape[0], indices, indices - 1)
+    return log_data['Aux'].values[indices]
