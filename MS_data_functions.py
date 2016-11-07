@@ -1,3 +1,4 @@
+####version 0.2.0 alpha self-calibrate function####
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -32,72 +33,271 @@ def mpl_style(style):
 	mpl.rc('ytick.major', size=8, width=2)
 
 #Ionization factors (from Ar + gas mixture)
-I_ar = 1.000
-I_nh3 = 0.811 #Old value = 0.849
-I_nd3 = 0.775 #Old value = 0.870
-I_ndh2 = (2 * I_nh3 + I_nd3) / 3 #Old value = 0.856
-I_nd2h = (I_nh3 + 2 * I_nd3) / 3 #Old value = 0.863
-I_h2 = 0.686 #Old value = 0.568
-I_d2 = 0.252
-I_hd = (I_h2 + I_d2) / 2 #Old value = 0.410
-I_n2 = 0.585 #Old value = 0.628
+class IonizationFactors:
+    def __init__(self, I_ar=None, I_nh3=None, I_nd3=None, I_h2=None, I_d2=None,
+                 I_n2=None):
+        self.I_ar = I_ar
+        self.I_nh3 = I_nh3
+        self.I_nd3 = I_nd3
+        self.I_h2 = I_h2
+        self.I_d2 = I_d2
+        self.I_n2 = I_n2
+        if I_nh3 and I_nd3:
+            self.I_ndh2 = (2 * I_nh3 + I_nd3) / 3
+            self.I_nd2h = (I_nh3 + 2 * I_nd3) / 3
+        else:
+            self.I_ndh2 = None
+            self.I_nd2h = None
+        if I_h2 and I_d2:
+            self.I_hd = (I_h2 + I_d2) / 2
+        else:
+            I_hd = None
+I_factors = IonizationFactors(I_ar=1.000, I_nh3=0.811, I_nd3=0.775, I_h2=0.686, 
+                              I_d2=0.252, I_n2=0.585)
 
 #coefficients at 100% single gas purity first
-###lots more to put in, but work out nd3 sfs first.
-nh3_amus = [1, 2, 14, 15, 16, 17, 18, 28]
-nh3_coeffs = np.array([0.0212, 0.0162, 0.0076, 0.0213, 0.3933, 0.5099,
-                       0.0159, 0.0146])
-nd3_amus = [1, 2, 4, 14, 16, 17, 18, 19, 20, 21, 22, 28]
-nd3_coeffs = np.array([0.0101, 0.0226, 0.0114, 0.0068, 0.0158, 0.0053,
-                       0.3890, 0.0148, 0.4944, 0.0024, 0.0126, 0.0147])
+class FragmentationRatios:
+    def __init__(self, ar_rats=None, nh3_rats=None, nd3_rats=None, h2_rats=None,
+                 d2_rats=None, n2_rats=None):
+        self.ar_rats = ar_rats
+        self.nh3_rats = nh3_rats
+        self.nd3_rats = nd3_rats
+        self.h2_rats = h2_rats
+        self.d2_rats = d2_rats
+        self.n2_rats = n2_rats
+        self.reset()
+    def reset(self):
+        if type(self.ar_rats) != type(None):
+            self.ar_sfs = [(mz, self.ar_rats[1][i]) for i, mz in 
+                           enumerate(self.ar_rats[0])]
+        else:
+            self.ar_sfs = None
+        if type(self.nh3_rats) != type(None):
+            self.nh3_sfs = [(mz, self.nh3_rats[1][i]) for i, mz in 
+                            enumerate(self.nh3_rats[0])]
+        else:
+            self.nh3_sfs = None
+        if type(self.nd3_rats) != type(None):
+            self.nd3_sfs = [(mz, self.nd3_rats[1][i]) for i, mz in 
+                            enumerate(self.nd3_rats[0])]
+        else:
+            self.nd3_sfs = None
+        if type(self.h2_rats) != type(None):
+            self.h2_sfs = [(mz, self.h2_rats[1][i]) for i, mz in 
+                            enumerate(self.h2_rats[0])]
+        else:
+            self.h2_sfs = None
+        if type(self.d2_rats) != type(None):
+            self.d2_sfs = [(mz, self.d2_rats[1][i]) for i, mz in 
+                            enumerate(self.d2_rats[0])]
+        else:
+            self.d2_sfs = None
+        if type(self.n2_rats) != type(None):
+            self.n2_sfs = [(mz, self.n2_rats[1][i]) for i, mz in 
+                            enumerate(self.n2_rats[0])]
+        else:
+            self.n2_sfs = None
+        if type(self.nh3_rats) != type(None) and type(self.nd3_rats) != type(None):
+            nd3_amus = [amu for amu in self.nd3_rats[0] if amu not in [17, 19, 21]]
+            self.nd3_sfs = []
+            for i, c in enumerate(self.nd3_rats[1]):
+                if i not in [5, 7, 9]:
+                    if i == 6:
+                        coeff = c * (1 - (0.0399 * 2) / 3)
+                    else:
+                        coeff = c
+                    self.nd3_sfs.append(coeff)
+            self.nd3_sfs
+            self.nd3_sfs = self.normalize_coeffs(self.nd3_sfs)
+            self.nd3_sfs = [(nd3_amus[i], s) for i, s in 
+                            enumerate(self.nd3_sfs)]
+            self.nh3_sfs = [(self.nh3_rats[0][i], s) for i, s in 
+                             enumerate(self.nh3_rats[1])]
+            y = self.nd3_fit(self.nh3_rats[1], self.nd3_rats[1])[0][1]
+            nh3_tot = 0
+            for n in self.nh3_rats[1][2:6]:
+                nh3_tot += n
+            f4, f3, f2, f1 = [n / nh3_tot for n in self.nh3_rats[1][2:6]]
+            p1 = (1 - f1) / 3
+            p2 = (1 - f2 / (1 - f1)) / 2
+            p3 = 1 - f3 / ((1 - f1) * (1 - f2 / (1 - f1)))
+            self.ndh2_temp_sfs = [6 * y * p1 * p2 * p3, 4 * y * p1 * p2 * (1 - p3),
+                                  y * p1 * (1 - 2 * p2) + 2 * p1 * p2 * (1 - y * p3),
+                                  2 * p1 * (1 - y * p2 - p2), 1 - 2 * p1 - y * p1, 
+                                  0, 0, 0, 0, 0]
+            self.nd2h_temp_sfs = [6 * y**2 * p1 * p2 * p3, 2 * y**2 * p1 * p2 * (1 - p3),
+                                  4 * y * p1 * p2 * (1 - y * p3), 
+                                  2 * y * p1 * (1 - p2 - y * p2), p1 * (1 - 2 * y * p2),
+                                  1 - p1 - 2 * y * p1, 0, 0, 0, 0]
+            self.ex_H = self.nh3_sfs[-2][1] / self.nh3_sfs[-3][-1]
+            self.ex_D = self.nd3_sfs[-2][1] / self.nd3_sfs[-3][-1]
+    def normalize_coeffs(self, coeffs):
+        total = 0
+        for c in coeffs:
+            total += c
+        new_coeffs = []
+        for c in coeffs:
+            new_coeffs.append(float(c) / total)
+        return new_coeffs
+    def nd3_fit(self, nh3_coeffs, nd3_coeffs, guesses=[0.01, 1]):
+        nh3_tot = 0
+        for n in nh3_coeffs[2:6]:
+            nh3_tot += n
+        f4, f3, f2, f1 = [n / nh3_tot for n in nh3_coeffs[2:6]]
+        p1 = (1 - f1) / 3
+        p2 = (1 - f2 / (1 - f1)) / 2
+        p3 = 1 - f3 / ((1 - f1) * (1 - f2 / (1 - f1)))
+        probs = [p1, p2, p3]
+        nd3_tot = 0
+        for n in nd3_coeffs[3:9]:
+            nd3_tot += n
+        nd3_new = [n / nd3_tot for n in nd3_coeffs[3:9]]
+        def residuals(guesses, probs, nd3_new):
+            x, y = guesses
+            p1, p2, p3 = probs
+            d14, d16, d17, d18, d19, d20 = nd3_new
+            err = np.zeros(len(nd3_new))
+            err[0] = np.abs(d14 - (1 - x) * 6 * y**3 * p1 * p2 * p3)
+            err[1] = np.abs(d16 - (1 - x) * 6 * y**2 * p1 * p2 * (1 - y * p3))
+            err[2] = np.abs(d17 - 2 * x * y * p1 * (2 - y * p2 - p2))
+            err[3] = np.abs(d18 - p1 * (1 - 2 * y * p2) * (3 * y * (1 - x) + x))
+            err[4] = np.abs(d19 - x * (1 - p1 - 2 * y * p1))
+            err[5] = np.abs(d20 - (1 - x) * (1 - 3 * y * p1))
+            return err
+        params = leastsq(residuals, guesses, args=(probs, nd3_new))
+        p = list(params[0])
+        fit14 = (1 - p[0]) * 6 * p[1]**3 * p1 * p2 * p3
+        fit16 = (1 - p[0]) * 6 * p[1]**2 * p1 * p2 * (1 - p[1] * p3)
+        fit17 = 2 * p[0] * p[1] * p1 * (1 - p[1] * p2 - p2)
+        fit18 = p1 * (1 - 2 * p[1] * p2) * (3 * p[1] * (1 - p[0]) + p[0])
+        fit19 = p[0] * (1 - p1 - 2 * p[1] * p1)
+        fit20 = (1 - p[0]) * (1 - 3 * p[1] * p1)
+        fits = [fit14, fit16, fit17, fit18, fit19, fit20]
+        return p, fits
+    def self_calibrate(self, gas_type, times, amus, fracs, x_range):
+        """Update the fragmentation ratios for a gas_type for current data
+        
+        Args:
+            gas_type (str): can (currently) be 'Ar', 'NH3', 'H2', 'N2'
+            times (arr): 2D array of times as from extract_mshist_pd()
+            amus (arr): 2D array of amus (or mzs) as from extract_mshist_pd()
+            fracs (arr): 2D array of mz fractions as from extract_mshist_pd()
+            x_range (list): start and stop times to calibrate over; if more than
+            one set of times, then order goes s0, e0, s1, e1 etc. where si is
+            start time and ei is end time.
+        """
+        x_starts = [np.searchsorted(times[0, :], x) for x in x_range[::2]]
+        x_ends = [np.searchsorted(times[0, :], x) for x in x_range[1::2]]
+        #work out mz means between those times:
+        fracs_reduced = fracs[:, x_starts[0]:x_ends[0]]
+        if len(x_starts) > 1:
+            for i, xs in enumerate(x_starts[1:]):
+                fracs_reduced = np.column_stack((fracs_reduced,
+                                                fracs[:, xs:x_ends[1:][i]]))
+        fracs_av = np.mean(fracs_reduced, axis=1)
+        if gas_type == 'Ar':
+            new_coeffs = []
+            for sf in self.ar_sfs:
+                av_frac = fracs_av[int(np.where(amus[:, 0] == sf[0])[0])]
+                new_coeffs.append(av_frac)
+            new_coeffs = self.normalize_coeffs(new_coeffs)
+            new_sfs = [(sf[0], new_coeffs[i]) for i, sf in enumerate(self.ar_sfs)]
+            self.ar_sfs = new_sfs
+        if gas_type == 'NH3':
+            new_coeffs = []
+            for sf in self.nh3_sfs:
+                av_frac = fracs_av[int(np.where(amus[:, 0] == sf[0])[0])]
+                new_coeffs.append(av_frac)
+            new_coeffs = self.normalize_coeffs(new_coeffs)
+            new_sfs = [(sf[0], new_coeffs[i]) for i, sf in enumerate(self.nh3_sfs)]
+            self.nh3_sfs = new_sfs
+        if gas_type == 'N2':
+            new_coeffs = []
+            for sf in self.n2_sfs:
+                av_frac = fracs_av[int(np.where(amus[:, 0] == sf[0])[0])]
+                new_coeffs.append(av_frac)
+            new_coeffs = self.normalize_coeffs(new_coeffs)
+            new_sfs = [(sf[0], new_coeffs[i]) for i, sf in enumerate(self.n2_sfs)]
+            self.n2_sfs = new_sfs
+        if gas_type == 'H2':
+            new_coeffs = []
+            for sf in self.h2_sfs:
+                av_frac = fracs_av[int(np.where(amus[:, 0] == sf[0])[0])]
+                new_coeffs.append(av_frac)
+            new_coeffs = self.normalize_coeffs(new_coeffs)
+            new_sfs = [(sf[0], new_coeffs[i]) for i, sf in enumerate(self.h2_sfs)]
+            self.h2_sfs = new_sfs
 
-def nd3_fit(nh3_coeffs, nd3_coeffs, guesses=[0.01, 1]):
-    nh3_tot = 0
-    for n in nh3_coeffs[2:6]:
-        nh3_tot += n
-    f4, f3, f2, f1 = [n / nh3_tot for n in nh3_coeffs[2:6]]
-    p1 = (1 - f1) / 3
-    p2 = (1 - f2 / (1 - f1)) / 2
-    p3 = 1 - f3 / ((1 - f1) * (1 - f2 / (1 - f1)))
-    probs = [p1, p2, p3]
-    nd3_tot = 0
-    for n in nd3_coeffs[3:9]:
-        nd3_tot += n
-    nd3_new = [n / nd3_tot for n in nd3_coeffs[3:9]]
-    def residuals(guesses, probs, nd3_new):
-        x, y = guesses
-        p1, p2, p3 = probs
-        d14, d16, d17, d18, d19, d20 = nd3_new
-        err = np.zeros(len(nd3_new))
-        err[0] = np.abs(d14 - (1 - x) * 6 * y**3 * p1 * p2 * p3)
-        err[1] = np.abs(d16 - (1 - x) * 6 * y**2 * p1 * p2 * (1 - y * p3))
-        err[2] = np.abs(d17 - 2 * x * y * p1 * (2 - y * p2 - p2))
-        err[3] = np.abs(d18 - p1 * (1 - 2 * y * p2) * (3 * y * (1 - x) + x))
-        err[4] = np.abs(d19 - x * (1 - p1 - 2 * y * p1))
-        err[5] = np.abs(d20 - (1 - x) * (1 - 3 * y * p1))
-        return err
-    params = leastsq(residuals, guesses, args=(probs, nd3_new))
-    p = list(params[0])
-    fit14 = (1 - p[0]) * 6 * p[1]**3 * p1 * p2 * p3
-    fit16 = (1 - p[0]) * 6 * p[1]**2 * p1 * p2 * (1 - p[1] * p3)
-    fit17 = 2 * p[0] * p[1] * p1 * (1 - p[1] * p2 - p2)
-    fit18 = p1 * (1 - 2 * p[1] * p2) * (3 * p[1] * (1 - p[0]) + p[0])
-    fit19 = p[0] * (1 - p1 - 2 * p[1] * p1)
-    fit20 = (1 - p[0]) * (1 - 3 * p[1] * p1)
-    fits = [fit14, fit16, fit17, fit18, fit19, fit20]
-    return p, fits
+all_sfs = FragmentationRatios(ar_rats=([20, 36, 40], [0.1133, 0.0030, 0.8836]),
+                              h2_rats=([1, 2, 3], [0.3580, 0.6349,0.0071]),
+                              d2_rats=([1, 2, 3, 4, 6], 
+                                       [0.0377, 0.0070, 0.0039, 0.9403, 0.0111]),
+                              n2_rats=([14, 28, 29], [0.0530, 0.9401, 0.0069]),
+                              nh3_rats=([1, 2, 14, 15, 16, 17, 18, 28],
+                                        np.array([0.0212, 0.0162, 0.0076, 
+                                                  0.0213, 0.3933, 0.5099, 
+                                                  0.0159, 0.0146])),
+                              nd3_rats=([1, 2, 4, 14, 16, 17, 18, 19, 20, 21, 22, 
+                                        28], np.array([0.0101, 0.0226, 0.0114, 
+                                                       0.0068, 0.0158, 0.0053,
+                                                       0.3890, 0.0148, 0.4944, 
+                                                       0.0024, 0.0126, 0.0147])))
+                                        
+                            
+#nh3_amus = [1, 2, 14, 15, 16, 17, 18, 28]
+#nh3_coeffs = np.array([0.0212, 0.0162, 0.0076, 0.0213, 0.3933, 0.5099,
+#                       0.0159, 0.0146])
+#nd3_amus = [1, 2, 4, 14, 16, 17, 18, 19, 20, 21, 22, 28]
+#nd3_coeffs = np.array([0.0101, 0.0226, 0.0114, 0.0068, 0.0158, 0.0053,
+#                       0.3890, 0.0148, 0.4944, 0.0024, 0.0126, 0.0147])
+
+#def nd3_fit(nh3_coeffs, nd3_coeffs, guesses=[0.01, 1]):
+#    nh3_tot = 0
+#    for n in nh3_coeffs[2:6]:
+#        nh3_tot += n
+#    f4, f3, f2, f1 = [n / nh3_tot for n in nh3_coeffs[2:6]]
+#    p1 = (1 - f1) / 3
+#    p2 = (1 - f2 / (1 - f1)) / 2
+#    p3 = 1 - f3 / ((1 - f1) * (1 - f2 / (1 - f1)))
+#    probs = [p1, p2, p3]
+#    nd3_tot = 0
+#    for n in nd3_coeffs[3:9]:
+#        nd3_tot += n
+#    nd3_new = [n / nd3_tot for n in nd3_coeffs[3:9]]
+#    def residuals(guesses, probs, nd3_new):
+#        x, y = guesses
+#        p1, p2, p3 = probs
+#        d14, d16, d17, d18, d19, d20 = nd3_new
+#        err = np.zeros(len(nd3_new))
+#        err[0] = np.abs(d14 - (1 - x) * 6 * y**3 * p1 * p2 * p3)
+#        err[1] = np.abs(d16 - (1 - x) * 6 * y**2 * p1 * p2 * (1 - y * p3))
+#        err[2] = np.abs(d17 - 2 * x * y * p1 * (2 - y * p2 - p2))
+#        err[3] = np.abs(d18 - p1 * (1 - 2 * y * p2) * (3 * y * (1 - x) + x))
+#        err[4] = np.abs(d19 - x * (1 - p1 - 2 * y * p1))
+#        err[5] = np.abs(d20 - (1 - x) * (1 - 3 * y * p1))
+#        return err
+#    params = leastsq(residuals, guesses, args=(probs, nd3_new))
+#    p = list(params[0])
+#    fit14 = (1 - p[0]) * 6 * p[1]**3 * p1 * p2 * p3
+#    fit16 = (1 - p[0]) * 6 * p[1]**2 * p1 * p2 * (1 - p[1] * p3)
+#    fit17 = 2 * p[0] * p[1] * p1 * (1 - p[1] * p2 - p2)
+#    fit18 = p1 * (1 - 2 * p[1] * p2) * (3 * p[1] * (1 - p[0]) + p[0])
+#    fit19 = p[0] * (1 - p1 - 2 * p[1] * p1)
+#    fit20 = (1 - p[0]) * (1 - 3 * p[1] * p1)
+#    fits = [fit14, fit16, fit17, fit18, fit19, fit20]
+#    return p, fits
 
 #nd3_fit gives the atom % of H in ND3 as 1.367 (i.e. 0.01367).
 #Therefore we take out 17, 19 and 21 peaks and modify 18 peak
-nd3_amus = [amu for amu in nd3_amus if amu not in [17, 19, 21]]
-nd3_sfs = []
-for i, c in enumerate(nd3_coeffs):
-    if i not in [5, 7, 9]:
-        if i == 6:
-            coeff = c * (1 - (0.0399 * 2) / 3)
-        else:
-            coeff = c
-        nd3_sfs.append(coeff)
+#nd3_amus = [amu for amu in nd3_amus if amu not in [17, 19, 21]]
+#nd3_sfs = []
+#for i, c in enumerate(nd3_coeffs):
+#    if i not in [5, 7, 9]:
+#        if i == 6:
+#            coeff = c * (1 - (0.0399 * 2) / 3)
+#        else:
+#            coeff = c
+#        nd3_sfs.append(coeff)
 
 def normalize_coeffs(coeffs):
     total = 0
@@ -108,36 +308,36 @@ def normalize_coeffs(coeffs):
         new_coeffs.append(float(c) / total)
     return new_coeffs
 
-nd3_sfs = normalize_coeffs(nd3_sfs)
-nd3_sfs = [(nd3_amus[i], s) for i, s in enumerate(nd3_sfs)]
-nh3_sfs = [(nh3_amus[i], s) for i, s in enumerate(nh3_coeffs)]
+#nd3_sfs = normalize_coeffs(nd3_sfs)
+#nd3_sfs = [(nd3_amus[i], s) for i, s in enumerate(nd3_sfs)]
+#nh3_sfs = [(nh3_amus[i], s) for i, s in enumerate(nh3_coeffs)]
 
 #now work out ndh2 and nd2h sfs
-y = nd3_fit(nh3_coeffs, nd3_coeffs)[0][1]
-nh3_tot = 0
-for n in nh3_coeffs[2:6]:
-    nh3_tot += n
-f4, f3, f2, f1 = [n / nh3_tot for n in nh3_coeffs[2:6]]
-p1 = (1 - f1) / 3
-p2 = (1 - f2 / (1 - f1)) / 2
-p3 = 1 - f3 / ((1 - f1) * (1 - f2 / (1 - f1)))
-
-ndh2_temp_sfs = [6 * y * p1 * p2 * p3, 4 * y * p1 * p2 * (1 - p3),
-                 y * p1 * (1 - 2 * p2) + 2 * p1 * p2 * (1 - y * p3),
-                 2 * p1 * (1 - y * p2 - p2), 1 - 2 * p1 - y * p1, 
-                 0, 0, 0, 0, 0]
-nd2h_temp_sfs = [6 * y**2 * p1 * p2 * p3, 2 * y**2 * p1 * p2 * (1 - p3),
-                 4 * y * p1 * p2 * (1 - y * p3), 
-                 2 * y * p1 * (1 - p2 - y * p2), p1 * (1 - 2 * y * p2),
-                 1 - p1 - 2 * y * p1, 0, 0, 0, 0]
-ex_H = nh3_sfs[-2][1] / nh3_sfs[-3][-1]
-ex_D = nd3_sfs[-2][1] / nd3_sfs[-3][-1]
+#y = nd3_fit(nh3_coeffs, nd3_coeffs)[0][1]
+#nh3_tot = 0
+#for n in nh3_coeffs[2:6]:
+#    nh3_tot += n
+#f4, f3, f2, f1 = [n / nh3_tot for n in nh3_coeffs[2:6]]
+#p1 = (1 - f1) / 3
+#p2 = (1 - f2 / (1 - f1)) / 2
+#p3 = 1 - f3 / ((1 - f1) * (1 - f2 / (1 - f1)))
+#
+#ndh2_temp_sfs = [6 * y * p1 * p2 * p3, 4 * y * p1 * p2 * (1 - p3),
+#                 y * p1 * (1 - 2 * p2) + 2 * p1 * p2 * (1 - y * p3),
+#                 2 * p1 * (1 - y * p2 - p2), 1 - 2 * p1 - y * p1, 
+#                 0, 0, 0, 0, 0]
+#nd2h_temp_sfs = [6 * y**2 * p1 * p2 * p3, 2 * y**2 * p1 * p2 * (1 - p3),
+#                 4 * y * p1 * p2 * (1 - y * p3), 
+#                 2 * y * p1 * (1 - p2 - y * p2), p1 * (1 - 2 * y * p2),
+#                 1 - p1 - 2 * y * p1, 0, 0, 0, 0]
+#ex_H = nh3_sfs[-2][1] / nh3_sfs[-3][-1]
+#ex_D = nd3_sfs[-2][1] / nd3_sfs[-3][-1]
 
 #other gases:
-h2_sfs = [(1, 0.3580), (2, 0.6349), (3, 0.0071)]
-d2_sfs = [(1, 0.0377), (2, 0.0070), (3, 0.0039), (4, 0.9403), (6, 0.0111)]
-n2_sfs = [(14, 0.0530), (28, 0.9401), (29, 0.0069)]
-ar_sfs = [(20, 0.1133), (36, 0.0030), (40, 0.8836)]
+#h2_sfs = [(1, 0.3580), (2, 0.6349), (3, 0.0071)]
+#d2_sfs = [(1, 0.0377), (2, 0.0070), (3, 0.0039), (4, 0.9403), (6, 0.0111)]
+#n2_sfs = [(14, 0.0530), (28, 0.9401), (29, 0.0069)]
+#ar_sfs = [(20, 0.1133), (36, 0.0030), (40, 0.8836)]
 
 def styles():
     """Return default colours for plots"""
@@ -492,15 +692,16 @@ def get_gasfracs(ps):
  
 def fit_MS_data(times, fracs, time_range=None):
     mzs2 = [2, 3, 14, 15, 16, 17, 28, 36, 40]
-    nh3_sfs2 = temp_fs(nh3_sfs, mzs2)
-    I2_nh3 = I_nh3 * (1 - nh3_sfs[0][1] - nh3_sfs[6][1])
-    n2_sfs2 = temp_fs(n2_sfs, mzs2)
-    I2_n2 = I_n2 * (1 - n2_sfs[2][1])
-    ar_sfs2 = temp_fs(ar_sfs, mzs2)
-    I2_ar = I_ar
-    h2_sfs2 = temp_fs(h2_sfs, mzs2)
-    I2_h2 = I_h2 * (1 - h2_sfs[0][1])
-    I2_h2 /= 1.3
+    nh3_sfs2 = temp_fs(all_sfs.nh3_sfs, mzs2)
+    I2_nh3 = I_factors.I_nh3 * (1 - all_sfs.nh3_sfs[0][1] - \
+                                all_sfs.nh3_sfs[6][1])
+    n2_sfs2 = temp_fs(all_sfs.n2_sfs, mzs2)
+    I2_n2 = I_factors.I_n2 * (1 - all_sfs.n2_sfs[2][1])
+    ar_sfs2 = temp_fs(all_sfs.ar_sfs, mzs2)
+    I2_ar = I_factors.I_ar
+    h2_sfs2 = temp_fs(all_sfs.h2_sfs, mzs2)
+    I2_h2 = I_factors.I_h2 * (1 - all_sfs.h2_sfs[0][1])
+    #I2_h2 /= 1.3
     sfs2 = [h2_sfs2, nh3_sfs2, n2_sfs2, ar_sfs2]
     Is2 = [I2_h2, I2_nh3, I2_n2, I2_ar]
     if type(time_range) == type([]) or type(time_range) == type((0,)):
