@@ -1,4 +1,4 @@
-####version 0.2.0 alpha self-calibrate function####
+####version 0.2.1 alpha (I_factors reset added)
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -36,24 +36,39 @@ def mpl_style(style):
 class IonizationFactors:
     def __init__(self, I_ar=None, I_nh3=None, I_nd3=None, I_h2=None, I_d2=None,
                  I_n2=None):
-        self.I_ar = I_ar
-        self.I_nh3 = I_nh3
-        self.I_nd3 = I_nd3
-        self.I_h2 = I_h2
-        self.I_d2 = I_d2
-        self.I_n2 = I_n2
-        if I_nh3 and I_nd3:
-            self.I_ndh2 = (2 * I_nh3 + I_nd3) / 3
-            self.I_nd2h = (I_nh3 + 2 * I_nd3) / 3
+        self.reset(I_ar, I_nh3, I_nd3, I_h2, I_d2, I_n2)
+     
+    def reset(self, I_ar=None, I_nh3=None, I_nd3=None, I_h2=None, I_d2=None,
+              I_n2=None):
+        if I_ar is None:
+            self.I_ar = 1.000
+        else:          
+            self.I_ar = I_ar
+        if I_nh3 is None:
+            self.I_nh3 = 0.811
         else:
-            self.I_ndh2 = None
-            self.I_nd2h = None
-        if I_h2 and I_d2:
-            self.I_hd = (I_h2 + I_d2) / 2
+            self.I_nh3 = I_nh3
+        if I_nd3 is None:
+            self.I_nd3 = 0.775
         else:
-            I_hd = None
-I_factors = IonizationFactors(I_ar=1.000, I_nh3=0.811, I_nd3=0.775, I_h2=0.686, 
-                              I_d2=0.252, I_n2=0.585)
+            self.I_nd3 = I_nd3
+        if I_h2 is None:
+            self.I_h2 = 0.686
+        else:
+            self.I_h2 = I_h2
+        if I_d2 is None:
+            self.I_d2 = 0.252
+        else:
+            self.I_d2 = I_d2
+        if I_n2 is None:
+            self.I_n2 = 0.585
+        else:
+            self.I_n2 = I_n2
+        self.I_ndh2 = (2 * self.I_nh3 + self.I_nd3) / 3
+        self.I_nd2h = (self.I_nh3 + 2 * self.I_nd3) / 3
+        self.I_hd = (self.I_h2 + self.I_d2) / 2
+
+I_factors = IonizationFactors()
 
 #coefficients at 100% single gas purity first
 class FragmentationRatios:
