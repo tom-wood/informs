@@ -1,9 +1,10 @@
-####version 0.2.2 alpha (added get_sigmoid_data function)
+####version 0.2.3 beta (added sigmoid fitting and plot_conv functions)
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from scipy.optimize import leastsq
 import pandas as pd
+import scipy.optimize as opt
 
 mpl.rcParams['mathtext.default'] = 'regular'
 """
@@ -808,3 +809,129 @@ def get_sigmoid_data(log_data, fit_times, fit_params, index_offset=150,
     conv2 = 2 * av_eq_mspec[:, 1] / (1 - 2 * av_eq_mspec[:, 1])
     conv2_unc = conv2 * 2 * av_eq_mspec_std[:, 1] / av_eq_mspec[:, 1]
     return av_eq_T, conv, conv_unc, conv2, conv2_unc
+
+
+def gomp(T, A, EA, R=8.3144598e-3):
+    """Return conversion array for given T, A, EA"""
+    a = A / R - EA / (R * T)
+    if type(a) != type(np.array([])):
+        a = np.array(a)
+    a[a > 10] = 10
+    a[a < -10] = -10
+    return 1 - np.exp(-np.exp(a))
+
+def gomp_Te(T, Te, EA, R=8.3144598e-3):
+    A = float(EA) / float(Te)
+    return gomp(T, A, EA, R)
+
+def gomp_Te_fadd(T, params, R=8.3144598e-3):
+    """Adding two fractions of Gompertz functions (a la Bill)"""
+    Te1, EA1, Te2, EA2, f = params
+    return f * gomp_Te(T, Te1, EA1) + (1 - f) * gomp_Te(T, Te2, EA2)
+
+def fit_single_Te(T, C, guesses, Tfit=None):
+    """Return best Te and Ea parameters for function to data
+
+    Args:
+        T (arr): array of temperatures in K
+        C (arr): array of conversions (specifically 1 - fNH3 fractions)
+        guesses: list of Te, EA guesses
+        Tfit (arr): array of T values (K) to provide a Cfit for
+    Returns:
+        p: list of Te, EA parameters
+        cov_C (arr): covariance matrix
+        unc_p: list of p standard deviations
+        Cfit (arr): array of C fitted values
+    """
+    R = 8.3144598e-3 # in kJ mol^-1 K^-1
+    def residuals(guesses, T, C, R):
+        Te, EA = guesses
+        Ccalc = gomp_Te(T, Te, EA)
+        err = C - Ccalc
+        return err
+    params = opt.leastsq(residuals, guesses, args=(T, C, R), 
+                         full_output=True)
+    if type(params[1]) == type(None):
+        cov_p = np.ones((2, 2)) * np.inf
+    else:
+        s_sq = (params[2]['fvec']**2).sum() / (len(params[2]['fvec']) -\
+                                               len(params[0]))
+        cov_p = params[1] * s_sq
+    s_sq_sig = ((params[2]['fvec'] / 0.01)**2).sum() / \
+               (len(params[2]['fvec']) - len(params[0]))
+    unc_p = np.diagonal(cov_p)**0.5
+    p = params[0]
+    cov_C = params[1]
+    if type(Tfit) == type(np.array([])):
+        Cfit = gomp_Te(Tfit, p[0], p[1])
+        return p, cov_C, unc_p, Cfit
+    return p, cov_C, unc_p
+
+def fit_Te_fadd(T, C, guesses, Tfit=None):
+    """Return best Te1, EA1, Te2, EA2, f parameters for function to data
+
+    Args:
+        T (arr): array of temperatures
+        C (arr): array of conversions (specifically 1 - fNH3 fractions)
+        guesses: list of A1, EA1, A2, EA2 guesses
+        Tfit (arr): array of T values (K) to provide a Cfit for
+    Returns:
+        p: list of Te, EA parameters
+        cov_C (arr): covariance matrix
+        unc_p: list of p standard deviations
+        Cfit (arr): array of C fitted values
+    """
+    def residuals(guesses, T, C):
+        Ccalc = gomp_Te_fadd(T, guesses)
+        err = C - Ccalc
+        return err
+    params = opt.leastsq(residuals, guesses, args=(T, C), full_output=True)
+    if type(params[1]) == type(None):
+        cov_p = np.ones((2, 2)) * np.inf
+    else:
+        s_sq = (params[2]['fvec']**2).sum() / (len(params[2]['fvec']) -\
+                                               len(params[0]))
+        cov_p = params[1] * s_sq
+    s_sq_sig = ((params[2]['fvec'] / 0.01)**2).sum() / \
+               (len(params[2]['fvec']) - len(params[0]))
+    unc_p = np.diagonal(cov_p)**0.5
+    p = params[0]
+    cov_C = params[1]
+    if type(Tfit) == type(np.array([])):
+        Cfit = gomp_Te_fadd(Tfit, p)
+        return p, cov_C, unc_p, Cfit
+    return p, cov_C, unc_p
+
+def cov2corr(A):
+    d = np.sqrt(np.matrix(A).diagonal())
+    res = (A.T / d).T / d
+    return res
+
+def plot_conv(T, conv, Tfit=None, fit=None, fit_is_fraction=True):
+    """Plot conversion with fits
+    
+    Args:
+        T: temperature array (in deg C)
+        conv: conversion array
+        Tfit: conversion fit temperature values (can be list, in K)
+        fit: conversion fit values (can be list for more than one fit)
+        fit_is_fraction (bool): if True will change fractional fits (i.e 
+        1-pNH3) to conversion fits (this is default behaviour).
+    """
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    colours = styles()
+    ax.scatter(T, conv, color=colours[0])
+    if fit is not None:
+        if type(fit) != list and type(fit) != tuple:
+            fit = [fit]
+        if fit_is_fraction:
+            fit = [f / (2 - f) for f in fit]
+        for i, f in enumerate(fit):
+            ax.plot(Tfit - 273.15, f, color=colours[i + 1], ls='dashed')
+    ax.set_xlabel(u'Temperature / \u00B0C')
+    ax.set_ylabel('Conversion')
+    ax.tick_params(top=False, right=False)
+    ax.set_ylim([0, 1])
+    fig.tight_layout()
+    return fig, ax
