@@ -946,7 +946,7 @@ def extract_single_fit(Tfits, fits):
         1 - fNH3 data fit for blank reactor.
     """
     Tf0, Tf1 = Tfits
-    blank_int = np.interp(Tf0, Tf1, blank_fit)
-    res = (fit - blank_int) / (blank_int * (fit - 2) + 1)
+    blank_int = np.interp(Tf0, Tf1, fits[1])
+    res = (fits[0] - blank_int) / (blank_int * (fits[0] - 2) + 1)
     return res
 
