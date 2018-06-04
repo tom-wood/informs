@@ -676,6 +676,77 @@ def fit_all_justhar(M, sfs, Is, fit_array=True, guesses=None):
         return guesses, p, guess_M, fit_M
     return guesses, p
 
+def fit_all_justdar(M, sfs, Is, fit_array=True, guesses=None):
+    """Return the best fit (LM) for MS data assuming all deuterated
+
+    Args:
+        M: array of measured MS fractions (normalized)
+        sfs: list of sensitivity factors for fragmentations of molecules in
+        molecular weight order.
+        Is: ionization factors in molecular weight order
+        fit_array (bool): determines whether to return fitted array or not
+        guesses: list of guesses for fraction of Ar, N2, ND3, D2
+    Returns:
+    """
+    d2_s, nd3_s, n2_s, ar_s = sfs
+    I_d2, I_nd3, I_n2, I_ar = Is
+    #work out initial guesses
+    if type(guesses) == type(None):
+        g_ar = M[11] / ar_s[11]
+        if g_ar > 1:
+            g_ar = 1
+        elif g_ar < 0:
+            g_ar = 0
+        g_n2 = M[9] / n2_s[9]
+        if g_n2 > 1:
+            g_n2 = 1
+        elif g_n2 < 0:
+            g_n2 = 0
+        g_nd3 = M[6] / nd3_s[6]
+        if g_nd3 > 1:
+            g_nd3 = 1
+        elif g_nd3 < 0:
+            g_nd3 = 0
+        g_d2 = 1 - g_n2 - g_nd3 - g_ar
+        guesses = [g_ar, g_n2, g_nd3, g_d2]
+    else:
+        g_ar, g_n2, g_nd3, g_d2 = guesses
+    if fit_array:
+        nd3_s1 = np.array(nd3_s[:])
+        n2_s1 = np.array(n2_s[:])
+        ar_s1 = np.array(ar_s[:])
+        d2_s1 = np.array(d2_s[:])
+        guess_M = g_n2 * n2_s1 + g_nd3 * nd3_s1 + g_d2 * d2_s1 + g_ar \
+                  * ar_s1
+    def residuals(guesses, sfs, Is, M):
+        d2_s, nd3_s, n2_s, ar_s = sfs
+        I_d2, I_nd3, I_n2, I_ar = Is
+        g_ar, g_n2, g_nd3, g_d2 = guesses
+        g_ar, g_n2, g_nd3, g_d2 = normalize_coeffs([g_ar, g_n2, g_nd3,
+                                                    g_d2])
+        nd3_s1 = np.array(nd3_s[:])
+        n2_s1 = np.array(n2_s[:])
+        ar_s1 = np.array(ar_s[:])
+        d2_s1 = np.array(d2_s[:])
+        M_calc = g_n2 * n2_s1 + g_nd3 * nd3_s1 + g_d2 * d2_s1 + g_ar *\
+                 ar_s1
+        err = np.abs(M - M_calc)
+        return err
+    params = leastsq(residuals, guesses, args=(sfs, Is, M))
+    p = list(params[0])
+    #Now adjust for ionization factors
+    p = [p[0] / I_ar, p[1] / I_n2, p[2] / I_nd3, p[3] / I_d2]
+    p = normalize_coeffs(p)
+    if fit_array:
+        g_ar, g_n2, g_nd3, g_d2 = p
+        nd3_s1 = np.array(nd3_s[:])
+        n2_s1 = np.array(n2_s[:])
+        ar_s1 = np.array(ar_s[:])
+        d2_s1 = np.array(d2_s[:])
+        fit_M = g_n2 * n2_s1 + g_nd3 * nd3_s1 + g_d2 * d2_s1 + g_ar * ar_s1
+        return guesses, p, guess_M, fit_M
+    return guesses, p
+
 def extract_mshist_pd(csv, bins=None, sums=None):
     """Return times, amus and pressures for csv file array"""
     cyc_len = int(csv['mass amu'].max())
@@ -744,8 +815,7 @@ def fit_MS_data(times, fracs, time_range=None):
     else:
 	times2 = times[0, :]
 	t1, t2 = 0, times.shape[1]
-    M2 = np.row_stack((fracs[1:3, t1:t2], fracs[13:17, t1:t2], 
-		       fracs[27, t1:t2], fracs[35, t1:t2], fracs[39, t1:t2])) 
+    M2 = np.row_stack([fracs[n - 1, t1:t2] for n in mzs2])
     norm_M2 = np.zeros(M2.shape)
     M2_tot = np.sum(M2, axis=0)
     for i, col in enumerate(M2[0, :]):
@@ -760,6 +830,53 @@ def fit_MS_data(times, fracs, time_range=None):
 	else:
 	    g, params2[i, :], gM, fit_M2[i, :] = \
 		    fit_all_justhar(norm_M2[:, i], sfs2, Is2, guesses=g)
+    params2[params2 < -0.05] = np.nan
+    params2[params2 > 1.05] = np.nan
+    params2[np.isnan(params2[:, 0]), :] = np.array([np.nan, np.nan, np.nan,
+						    np.nan])
+    for i, b in enumerate(params2):
+	if np.isnan(b).any():
+	    if i == 0:
+		params2[i] = np.array([1, 0, 0, 0])
+	    else:
+		params2[i] = params2[i - 1]
+    return times2, params2
+
+def fit_deuterated_MS_data(times, fracs, time_range=None):
+    mzs2 = [2, 3, 4, 6, 14, 16, 18, 20, 28, 36, 40]
+    nd3_sfs2 = temp_fs(all_sfs.nd3_sfs, mzs2)
+    I2_nd3 = I_factors.I_nd3 * (1 - all_sfs.nd3_sfs[0][1] - \
+                                all_sfs.nd3_sfs[7][1])
+    n2_sfs2 = temp_fs(all_sfs.n2_sfs, mzs2)
+    I2_n2 = I_factors.I_n2 * (1 - all_sfs.n2_sfs[2][1])
+    ar_sfs2 = temp_fs(all_sfs.ar_sfs, mzs2)
+    I2_ar = I_factors.I_ar
+    d2_sfs2 = temp_fs(all_sfs.d2_sfs, mzs2)
+    I2_d2 = I_factors.I_d2 * (1 - all_sfs.d2_sfs[0][1])
+    #I2_h2 /= 1.3
+    sfs2 = [d2_sfs2, nd3_sfs2, n2_sfs2, ar_sfs2]
+    Is2 = [I2_d2, I2_nd3, I2_n2, I2_ar]
+    if type(time_range) == type([]) or type(time_range) == type((0,)):
+	t1, t2 = [np.searchsorted(times[0, :], tval) for tval in time_range]
+	times2 = times[0, t1:t2]
+    else:
+	times2 = times[0, :]
+	t1, t2 = 0, times.shape[1]
+    M2 = np.row_stack([fracs[n - 1, t1:t2] for n in mzs2])
+    norm_M2 = np.zeros(M2.shape)
+    M2_tot = np.sum(M2, axis=0)
+    for i, col in enumerate(M2[0, :]):
+	norm_M2[:, i] = M2[:, i] / M2_tot[i]
+    fit_M2 = np.zeros(norm_M2.shape).T
+    params2 = np.zeros((norm_M2.shape[1], 4))
+    for i, col in enumerate(norm_M2[0, :]):
+	if i == 0:
+	    g, params2[i, :], gM, fit_M2[i, :] = \
+		    fit_all_justdar(norm_M2[:, i], sfs2, Is2,
+				    guesses=[1, 0, 0, 0])
+	else:
+	    g, params2[i, :], gM, fit_M2[i, :] = \
+		    fit_all_justdar(norm_M2[:, i], sfs2, Is2, guesses=g)
     params2[params2 < -0.05] = np.nan
     params2[params2 > 1.05] = np.nan
     params2[np.isnan(params2[:, 0]), :] = np.array([np.nan, np.nan, np.nan,
