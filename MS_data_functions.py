@@ -935,3 +935,18 @@ def plot_conv(T, conv, Tfit=None, fit=None, fit_is_fraction=True):
     ax.set_ylim([0, 1])
     fig.tight_layout()
     return fig, ax
+
+def extract_single_fit(Tfits, fits):
+    """Return single fit, with blank contribution removed
+    
+    Args:
+        Tfits (list): list of x data arrays (temperature - doesn't matter 
+        which units).
+        fits (list): list of: (i) 1 - fNH3 data fit for catalyst and (ii)
+        1 - fNH3 data fit for blank reactor.
+    """
+    Tf0, Tf1 = Tfits
+    blank_int = np.interp(Tf0, Tf1, fits[1])
+    res = (fits[0] - blank_int) / (blank_int * (fits[0] - 2) + 1)
+    return res
+
