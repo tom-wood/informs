@@ -219,7 +219,7 @@ class FragmentationRatios:
             new_coeffs = self.normalize_coeffs(new_coeffs)
             new_sfs = [(sf[0], new_coeffs[i]) for i, sf in enumerate(self.ar_sfs)]
             self.ar_sfs = new_sfs
-        if gas_type == 'NH3':
+        elif gas_type == 'NH3':
             new_coeffs = []
             for sf in self.nh3_sfs:
                 av_frac = fracs_av[int(np.where(amus[:, 0] == sf[0])[0])]
@@ -227,7 +227,15 @@ class FragmentationRatios:
             new_coeffs = self.normalize_coeffs(new_coeffs)
             new_sfs = [(sf[0], new_coeffs[i]) for i, sf in enumerate(self.nh3_sfs)]
             self.nh3_sfs = new_sfs
-        if gas_type == 'N2':
+        elif gas_type == 'ND3':
+            new_coeffs = []
+            for sf in self.nd3_sfs:
+                av_frac = fracs_av[int(np.where(amus[:, 0] == sf[0])[0])]
+                new_coeffs.append(av_frac)
+            new_coeffs = self.normalize_coeffs(new_coeffs)
+            new_sfs = [(sf[0], new_coeffs[i]) for i, sf in enumerate(self.nd3_sfs)]
+            self.nd3_sfs = new_sfs
+        elif gas_type == 'N2':
             new_coeffs = []
             for sf in self.n2_sfs:
                 av_frac = fracs_av[int(np.where(amus[:, 0] == sf[0])[0])]
@@ -235,7 +243,7 @@ class FragmentationRatios:
             new_coeffs = self.normalize_coeffs(new_coeffs)
             new_sfs = [(sf[0], new_coeffs[i]) for i, sf in enumerate(self.n2_sfs)]
             self.n2_sfs = new_sfs
-        if gas_type == 'H2':
+        elif gas_type == 'H2':
             new_coeffs = []
             for sf in self.h2_sfs:
                 av_frac = fracs_av[int(np.where(amus[:, 0] == sf[0])[0])]
@@ -243,6 +251,16 @@ class FragmentationRatios:
             new_coeffs = self.normalize_coeffs(new_coeffs)
             new_sfs = [(sf[0], new_coeffs[i]) for i, sf in enumerate(self.h2_sfs)]
             self.h2_sfs = new_sfs
+        elif gas_type == 'D2':
+            new_coeffs = []
+            for sf in self.d2_sfs:
+                av_frac = fracs_av[int(np.where(amus[:, 0] == sf[0])[0])]
+                new_coeffs.append(av_frac)
+            new_coeffs = self.normalize_coeffs(new_coeffs)
+            new_sfs = [(sf[0], new_coeffs[i]) for i, sf in enumerate(self.d2_sfs)]
+            self.d2_sfs = new_sfs
+        else:
+            print("Can't reset sensitivity factors for gas %s." % gas_type)
 
 all_sfs = FragmentationRatios(ar_rats=([20, 36, 40], [0.1133, 0.0030, 0.8836]),
                               h2_rats=([1, 2, 3], [0.3580, 0.6349,0.0071]),
