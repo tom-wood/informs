@@ -23,15 +23,15 @@ mpl.rc('ytick.major', size=8)#, width=2)
 
 def mpl_style(style):
     if style == 'presentation':
-	mpl.rcParams['axes.linewidth'] = 2.0
-	mpl.rcParams['lines.linewidth'] = 2.0
-	mpl.rcParams['font.size'] = 16.0
-	mpl.rcParams['legend.fontsize'] = 14.0
-	mpl.rc('ytick', labelsize=16, direction='out')
-	mpl.rc('xtick', labelsize=16, direction='out')
-	mpl.rc('xtick.major', size=8, width=2)
-	mpl.rc('xtick.minor', size=8)
-	mpl.rc('ytick.major', size=8, width=2)
+        mpl.rcParams['axes.linewidth'] = 2.0
+        mpl.rcParams['lines.linewidth'] = 2.0
+        mpl.rcParams['font.size'] = 16.0
+        mpl.rcParams['legend.fontsize'] = 14.0
+        mpl.rc('ytick', labelsize=16, direction='out')
+        mpl.rc('xtick', labelsize=16, direction='out')
+        mpl.rc('xtick.major', size=8, width=2)
+        mpl.rc('xtick.minor', size=8)
+        mpl.rc('ytick.major', size=8, width=2)
 
 #Ionization factors (from Ar + gas mixture)
 class IonizationFactors:
