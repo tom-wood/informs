@@ -810,11 +810,11 @@ def fit_MS_data(times, fracs, time_range=None):
     sfs2 = [h2_sfs2, nh3_sfs2, n2_sfs2, ar_sfs2]
     Is2 = [I2_h2, I2_nh3, I2_n2, I2_ar]
     if type(time_range) == type([]) or type(time_range) == type((0,)):
-	t1, t2 = [np.searchsorted(times[0, :], tval) for tval in time_range]
-	times2 = times[0, t1:t2]
+        t1, t2 = [np.searchsorted(times[0, :], tval) for tval in time_range]
+        times2 = times[0, t1:t2]
     else:
-	times2 = times[0, :]
-	t1, t2 = 0, times.shape[1]
+        times2 = times[0, :]
+        t1, t2 = 0, times.shape[1]
     M2 = np.row_stack([fracs[n - 1, t1:t2] for n in mzs2])
     norm_M2 = np.zeros(M2.shape)
     M2_tot = np.sum(M2, axis=0)
