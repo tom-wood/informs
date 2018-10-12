@@ -752,9 +752,9 @@ def extract_mshist_pd(csv, bins=None, sums=None):
     cyc_len = int(csv['mass amu'].max())
     cyc_num = int(csv.shape[0] / cyc_len)
     if bins:
-        times = np.zeros((cyc_len, cyc_num / bins))
-        amus = np.zeros((cyc_len, cyc_num / bins))
-        ps = np.zeros((cyc_len, cyc_num / bins))
+        times = np.zeros((cyc_len, cyc_num // bins))
+        amus = np.zeros((cyc_len, cyc_num // bins))
+        ps = np.zeros((cyc_len, cyc_num // bins))
         for n in range(cyc_num / bins):
             times[:, n] = csv['ms'][int(cyc_len * n * bins):
                                     int(cyc_len * (n * bins + 1))] / 6e4
@@ -764,10 +764,10 @@ def extract_mshist_pd(csv, bins=None, sums=None):
                                            int(cyc_len * (n * bins + 1))]
         return times, amus, ps
     if sums:
-        times = np.zeros((cyc_len, cyc_num / sums))
-        amus = np.zeros((cyc_len, cyc_num / sums))
-        ps = np.zeros((cyc_len, cyc_num / sums))
-        for n in range(cyc_num / sums):
+        times = np.zeros((cyc_len, cyc_num // sums))
+        amus = np.zeros((cyc_len, cyc_num // sums))
+        ps = np.zeros((cyc_len, cyc_num // sums))
+        for n in range(cyc_num // sums):
             times[:, n] = np.mean(csv['ms'].values[\
                 int(cyc_len * n * sums):\
                 int(cyc_len * (n + 1) * sums)].reshape(sums, cyc_len),\
