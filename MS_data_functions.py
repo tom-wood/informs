@@ -819,27 +819,26 @@ def fit_MS_data(times, fracs, time_range=None):
     norm_M2 = np.zeros(M2.shape)
     M2_tot = np.sum(M2, axis=0)
     for i, col in enumerate(M2[0, :]):
-	norm_M2[:, i] = M2[:, i] / M2_tot[i]
+        norm_M2[:, i] = M2[:, i] / M2_tot[i]
     fit_M2 = np.zeros(norm_M2.shape).T
     params2 = np.zeros((norm_M2.shape[1], 4))
     for i, col in enumerate(norm_M2[0, :]):
-	if i == 0:
-	    g, params2[i, :], gM, fit_M2[i, :] = \
-		    fit_all_justhar(norm_M2[:, i], sfs2, Is2,
-				    guesses=[1, 0, 0, 0])
-	else:
-	    g, params2[i, :], gM, fit_M2[i, :] = \
-		    fit_all_justhar(norm_M2[:, i], sfs2, Is2, guesses=g)
+        if i == 0:
+            g, params2[i, :], gM, fit_M2[i, :] = \
+            fit_all_justhar(norm_M2[:, i], sfs2, Is2, guesses=[1, 0, 0, 0])
+        else:
+            g, params2[i, :], gM, fit_M2[i, :] = \
+            fit_all_justhar(norm_M2[:, i], sfs2, Is2, guesses=g)
     params2[params2 < -0.05] = np.nan
     params2[params2 > 1.05] = np.nan
     params2[np.isnan(params2[:, 0]), :] = np.array([np.nan, np.nan, np.nan,
 						    np.nan])
     for i, b in enumerate(params2):
-	if np.isnan(b).any():
-	    if i == 0:
-		params2[i] = np.array([1, 0, 0, 0])
-	    else:
-		params2[i] = params2[i - 1]
+        if np.isnan(b).any():
+            if i == 0:
+                params2[i] = np.array([1, 0, 0, 0])
+            else:
+                params2[i] = params2[i - 1]
     return times2, params2
 
 def fit_deuterated_MS_data(times, fracs, time_range=None):
@@ -857,36 +856,35 @@ def fit_deuterated_MS_data(times, fracs, time_range=None):
     sfs2 = [d2_sfs2, nd3_sfs2, n2_sfs2, ar_sfs2]
     Is2 = [I2_d2, I2_nd3, I2_n2, I2_ar]
     if type(time_range) == type([]) or type(time_range) == type((0,)):
-	t1, t2 = [np.searchsorted(times[0, :], tval) for tval in time_range]
-	times2 = times[0, t1:t2]
+        t1, t2 = [np.searchsorted(times[0, :], tval) for tval in time_range]
+        times2 = times[0, t1:t2]
     else:
-	times2 = times[0, :]
-	t1, t2 = 0, times.shape[1]
+        times2 = times[0, :]
+        t1, t2 = 0, times.shape[1]
     M2 = np.row_stack([fracs[n - 1, t1:t2] for n in mzs2])
     norm_M2 = np.zeros(M2.shape)
     M2_tot = np.sum(M2, axis=0)
     for i, col in enumerate(M2[0, :]):
-	norm_M2[:, i] = M2[:, i] / M2_tot[i]
+        norm_M2[:, i] = M2[:, i] / M2_tot[i]
     fit_M2 = np.zeros(norm_M2.shape).T
     params2 = np.zeros((norm_M2.shape[1], 4))
     for i, col in enumerate(norm_M2[0, :]):
-	if i == 0:
-	    g, params2[i, :], gM, fit_M2[i, :] = \
-		    fit_all_justdar(norm_M2[:, i], sfs2, Is2,
-				    guesses=[1, 0, 0, 0])
-	else:
-	    g, params2[i, :], gM, fit_M2[i, :] = \
-		    fit_all_justdar(norm_M2[:, i], sfs2, Is2, guesses=g)
+        if i == 0:
+            g, params2[i, :], gM, fit_M2[i, :] = \
+            fit_all_justdar(norm_M2[:, i], sfs2, Is2, guesses=[1, 0, 0, 0])
+        else:
+            g, params2[i, :], gM, fit_M2[i, :] = \
+            fit_all_justdar(norm_M2[:, i], sfs2, Is2, guesses=g)
     params2[params2 < -0.05] = np.nan
     params2[params2 > 1.05] = np.nan
     params2[np.isnan(params2[:, 0]), :] = np.array([np.nan, np.nan, np.nan,
 						    np.nan])
     for i, b in enumerate(params2):
-	if np.isnan(b).any():
-	    if i == 0:
-		params2[i] = np.array([1, 0, 0, 0])
-	    else:
-		params2[i] = params2[i - 1]
+        if np.isnan(b).any():
+            if i == 0:
+                params2[i] = np.array([1, 0, 0, 0])
+            else:
+                params2[i] = params2[i - 1]
     return times2, params2
 
 def get_log_data(log_fpath):
