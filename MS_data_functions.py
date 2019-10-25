@@ -1008,6 +1008,52 @@ def get_sigmoid_data(log_data, fit_times, fit_params, index_offset=150,
     conv2_unc = conv2 * 2 * av_eq_mspec_std[:, 1] / av_eq_mspec[:, 1]
     return av_eq_T, conv, conv_unc, conv2, conv2_unc
 
+
+class TC_Indices:
+    def __init__(self, indices, CRD=False):
+        self.indices = np.array(indices)
+        self.old_indices = np.array(indices)
+        self.CRD = CRD
+    
+    def remove(self, index_list):
+        """Removes each TC_index from its position in index_list"""
+        keep_is = ([a for a in range(len(self.indices)) if a not in index_list])
+        self.indices = self.indices[keep_is]
+    
+    def reset(self):
+        self.indices = np.copy(self.old_indices)
+    
+    def plot_changes(self, log_data):
+        fig = plt.figure(figsize=(10, 7))
+        ax = fig.add_subplot(111)
+        t = log_data['Time'].values / 3600
+        if self.CRD:
+            T = log_data['CRD'].values
+        else:
+            T = log_data['Aux'].values
+        ax.plot(t, T)
+        for n, i in enumerate(self.indices):
+            ax.axvline(t[i], ls='dashed', color='k')
+            ax.text(t[i], T[i], str(n), ha='right', va='bottom', color='r')
+        fig.tight_layout()
+        return fig, ax
+        
+def get_temp_changes_CRD(log_data):
+    """Return temperature change indices
+    
+    Args:
+        log_data: pandas.DataFrame instance of all log data
+    """
+    Tchanges = log_data['CRD_set'].values[1:] - \
+               log_data['CRD_set'].values[:-1]
+    Tc_indices = []
+    times = log_data['Time'].values / 60.
+    for i, Tc in enumerate(Tchanges[:-1]):
+        if Tc == 0 and Tchanges[i + 1] != 0:
+            Tc_indices.append(i + 1)
+    return TC_Indices(Tc_indices, CRD=True)
+
+
 def get_sigmoid_data_CRD(log_data, fit_times, fit_params, index_offset=150, 
                          miss_first=True):
     """Return sigmoid data for all changes in temperature
