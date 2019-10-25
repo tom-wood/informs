@@ -948,10 +948,22 @@ def get_log_data(log_fpath):
 				  'Aux'], skiprows=1)
     return log_data
 
+def get_log_data_CRD(log_fpath):
+    log_data = pd.read_csv(log_fpath, sep='\t', 
+	                   usecols=[4, 8, 9, 10, 11, 12, 23, 24],
+			   names=['Time', 'MFM', 'MFC1_set', 'MFC1',
+			          'MFC2_set', 'MFC2', 'CRD', 'CRD_set'], skiprows=1)
+    return log_data
+
 def get_T_ms(log_data, fit_times):
     indices = np.searchsorted(log_data['Time'].values / 60, fit_times)
     indices = np.where(indices < log_data.shape[0], indices, indices - 1)
     return log_data['Aux'].values[indices]
+
+def get_T_ms_CRD(log_data, fit_times):
+    indices = np.searchsorted(log_data['Time'].values / 60, fit_times)
+    indices = np.where(indices < log_data.shape[0], indices, indices - 1)
+    return log_data['CRD'].values[indices]
 
 def get_sigmoid_data(log_data, fit_times, fit_params, index_offset=150, 
                      miss_first=True):
@@ -996,6 +1008,48 @@ def get_sigmoid_data(log_data, fit_times, fit_params, index_offset=150,
     conv2_unc = conv2 * 2 * av_eq_mspec_std[:, 1] / av_eq_mspec[:, 1]
     return av_eq_T, conv, conv_unc, conv2, conv2_unc
 
+def get_sigmoid_data_CRD(log_data, fit_times, fit_params, index_offset=150, 
+                         miss_first=True):
+    """Return sigmoid data for all changes in temperature
+    
+    Args:
+        log_data: pandas.DataFrame instance of all log data
+        fit_times: array of mass spec times (fitted)
+        fit_params: array of fitted parameters (gas fractions excluding T_ms)
+        index_offset: number of points to take averages over
+        miss_first (bool): accounts for first temperature setpoint change
+        normally being unwanted (i.e. the initial heat ramp up).
+    """
+    Tchanges = log_data['CRD_set'].values[1:] - \
+               log_data['CRD_set'].values[:-1]
+    Tc_indices = []
+    times = log_data['Time'].values / 60.
+    for i, Tc in enumerate(Tchanges[:-1]):
+        if Tc == 0 and Tchanges[i + 1] != 0:
+            Tc_indices.append(i + 1)
+    if miss_first:
+        Tc_indices = np.array(Tc_indices[1:])
+    else:
+        Tc_indices = np.array(Tc_indices)
+    Tc_indices2 = Tc_indices - index_offset
+    Tc_ind_mspec = np.searchsorted(fit_times, times[Tc_indices])
+    Tc_ind_mspec2 = np.searchsorted(fit_times, times[Tc_indices2])
+    av_eq_mspec = np.row_stack([np.mean(fit_params[Tci2:Tc_ind_mspec[i], :],
+                                        axis=0) for i, Tci2 in
+                                enumerate(Tc_ind_mspec2)])
+    av_eq_T = np.concatenate([np.array([np.mean(log_data['CRD'].values[Tci2:Tc_indices[i]])])
+                              for i, Tci2 in enumerate(Tc_indices2)])
+    av_eq_mspec_std = np.row_stack([np.std(fit_params[Tci2:Tc_ind_mspec[i], :],
+                                        axis=0) for i, Tci2 in
+                                enumerate(Tc_ind_mspec2)])
+    av_eq_T_std = np.concatenate([np.array([np.std(log_data['CRD'].values[Tci2:Tc_indices[i]])])
+                              for i, Tci2 in enumerate(Tc_indices2)])
+    av_eq_mspec[av_eq_mspec < 0] = 0
+    conv = (1 - av_eq_mspec[:, 2]) / (1 + av_eq_mspec[:, 2])
+    conv_unc = conv * av_eq_mspec[:, 2] / av_eq_mspec[:, 2]
+    conv2 = 2 * av_eq_mspec[:, 1] / (1 - 2 * av_eq_mspec[:, 1])
+    conv2_unc = conv2 * 2 * av_eq_mspec_std[:, 1] / av_eq_mspec[:, 1]
+    return av_eq_T, conv, conv_unc, conv2, conv2_unc
 
 def gomp(T, A, EA, R=8.3144598e-3):
     """Return conversion array for given T, A, EA"""
