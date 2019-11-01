@@ -1063,7 +1063,7 @@ class Experiment:
     def get_log_data(self, CRD=False):
         if CRD:
             self.CRD = True
-            self.log_data = pd.read_csv(log_fpath, sep='\t', 
+            self.log_data = pd.read_csv(self.log_fpath, sep='\t', 
         	                   usecols=[4, 8, 9, 10, 11, 12, 23, 24],
         			   names=['Time', 'MFM', 'MFC1_set', 'MFC1',
         			          'MFC2_set', 'MFC2', 'CRD', 'CRD_set'], skiprows=1)
@@ -1172,8 +1172,6 @@ class Experiment:
         av_eq_mspec_std = np.row_stack([np.mean(self.MS_gasfracs[Tci2:Tci, :],
                                             axis=0) for Tci, Tci2 in
                                     zip(Tc_ind_mspec, Tc_ind_mspec2)])
-        av_eq_T_std = np.array([np.std(T[Tci2:Tci]) for Tci, Tci2 in 
-                            zip(Tc_indices, Tc_indices2)])
         av_eq_mspec[av_eq_mspec < 0] = 0
         conv = (1 - av_eq_mspec[:, 2]) / (1 + av_eq_mspec[:, 2])
         conv_unc = conv * av_eq_mspec[:, 2] / av_eq_mspec[:, 2]
@@ -1183,7 +1181,7 @@ class Experiment:
         self.conv = conv
         self.conv_std = conv_unc
         self.conv2 = conv2
-        self.conv2_unc = conv_unc
+        self.conv2_unc = conv2_unc
     
     def plot_conv_only(self, figsize=(10, 7), dpi=None):
         """Plot traces from log file
