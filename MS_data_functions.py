@@ -1396,3 +1396,140 @@ def extract_single_fit(Tfits, fits):
     res = (fits[0] - blank_int) / (blank_int * (fits[0] - 2) + 1)
     return res
 
+class Calibration_Experiment:
+    def __init__(self, fpath):
+        self.fpath = fpath
+        self.get_fnames()
+        self.MS_times = None
+        self.MS_amus = None
+        self.MS_ps = None
+        self.MS_fracs = None
+    
+    def get_fnames(self):
+        import os
+        fnames = os.listdir(self.fpath)
+        csv_fnames = [fn for fn in fnames if fn[-4:] == '.csv']
+        log_fnames = [fn for fn in fnames if fn[-4:] == '.log']
+        if len(csv_fnames) == 0:
+            ps = ('Could not find a .csv file in the named filepath\n'
+                  'Please supply csv_fpath manually')
+            print(ps)
+        elif len(csv_fnames) == 1:
+            self.csv_fpath = self.fpath + csv_fnames[0]
+            print(f'csv_fname set as "{csv_fnames[0]}"')
+        else:
+            self.csv_fpath = self.fpath + csv_fnames[0]
+            ps = ('Multiple .csv files found in the named filepath\n'
+                  'csv_fname set as "{csv_fnames[0]}"')
+        if len(log_fnames) == 0:
+            ps = ('Could not find a .log file in the named filepath\n'
+                  'Please supply log_fpath manually')
+            print(ps)
+        elif len(log_fnames) == 1:
+            self.log_fpath = self.fpath + csv_fnames[0]
+            print(f'log_fname set as "{log_fnames[0]}"')
+        else:
+            self.csv_fname = self.fpath + csv_fnames[0]
+            ps = ('Multiple .csv files found in the named filepath\n'
+                  'log_fname set as "{log_fnames[0]}"')
+        return
+    
+    def extract_MS_data(self, sums=None):
+        """Extract MS data into times, amus and fracs
+        
+        Args:
+            sums (int): number of histogram instances to sum (take mean) over
+        """
+        csv = pd.read_csv(self.csv_fpath, sep=',', header=29, 
+                                   usecols=[0, 2, 3, 4])
+        cyc_len = int(csv['mass amu'].max())
+        cyc_num = int(csv.shape[0] / cyc_len)
+        if sums:
+            times = np.zeros((cyc_len, cyc_num // sums))
+            amus = np.zeros((cyc_len, cyc_num // sums))
+            ps = np.zeros((cyc_len, cyc_num // sums))
+            t = csv['ms'].values
+            p = csv['Faraday torr'].values
+            for n in range(cyc_num // sums):
+                times[:, n] = np.mean(t[int(cyc_len * n * sums):\
+                    int(cyc_len * (n + 1) * sums)].reshape(sums, cyc_len),\
+                                     axis=0) / 6e4
+                amus[:, n] = csv['mass amu'][int(cyc_len * n * sums):
+                                             int(cyc_len * (n * sums + 1))]
+                ps[:, n] = np.mean(p[int(cyc_len * n * sums):\
+                    int(cyc_len * (n + 1) * sums)].reshape(sums, cyc_len),\
+                                  axis=0)
+        else:
+            times = np.zeros((cyc_len, cyc_num))
+            amus = np.zeros((cyc_len, cyc_num))
+            ps = np.zeros((cyc_len, cyc_num))
+            csv_vals = csv.values
+            for n in range(cyc_num):
+                times[:, n] = csv_vals[cyc_len * n:cyc_len * (n + 1), 1] / 6e4
+                amus[:, n] = csv_vals[cyc_len * n:cyc_len * (n + 1), 2]
+                ps[:, n] = csv_vals[cyc_len * n:cyc_len * (n + 1), 3]
+        tot_ps = np.sum(ps, axis=0)
+        tot_ps = np.meshgrid(tot_ps, np.zeros(ps.shape[0]))[0]
+        self.MS_times = times
+        self.MS_amus = amus
+        self.MS_ps = ps
+        self.MS_fracs = ps / tot_ps
+    
+    def MS_contour(self, colour_num=50, figsize=(10, 8), xlabel='Time / min',
+                   ylabel='m/z / a.m.u.', zlabel='Gas Fraction', dpi=None,
+                   zscale='linear', t_range=None):
+        """Return filled contour plot of raw MS gas fraction data over time
+        
+        Args:
+            colour_num (int): number of colours to use on z scale
+            figsize (tuple): (m, n) size of figure in inches
+            xlabel (str): label for x axis
+            ylabel (str): label for y axis
+            zlabel (str): label for z axis
+            dpi (int): image resolution
+            zscale (str): can take values of 'linear', 'sqrt' or 'log', where
+            the log is natural log.
+            t_range (list): list of first and last time values to plot over
+        Returns:
+            fig: plt.figure instance
+            ax: plt.axis instance
+            cbar: colourbar instance
+        """
+        t, a, f = self.MS_times, self.MS_amus, self.MS_fracs
+        if t_range is not None:
+            ti0, ti1 = np.searchsorted(t[0], t_range)
+            t, a, f = t[:, ti0:ti1], a[:, ti0:ti1], f[:, ti0:ti1]
+        fig = plt.figure(figsize=figsize, dpi=dpi)
+        ax = fig.add_subplot(111, xlabel=xlabel, ylabel=ylabel)
+        ax.tick_params(top=False, right=False)
+        if zscale == 'linear':
+            im = ax.contourf(t, a, f, colour_num)
+        elif zscale == 'sqrt':
+            im = ax.contourf(t, a, np.sqrt(np.clip(f, 1e-5, 1)), colour_num)
+            zlabel = f"$\sqrt{{{zlabel}}}$"
+        elif zscale == 'log':
+            im = ax.contourf(t, a, np.log(np.clip(f, 1e-5, 1)), colour_num)
+            zlabel = f"log({zlabel})"
+        else:
+            raise ValueError("zscale must take value of 'linear', 'sqrt' or 'log'")
+        cbar = plt.colorbar(im)
+        cbar.set_label(zlabel, rotation=270, labelpad=20)
+        fig.tight_layout()
+        return fig, ax, cbar
+    
+    def plot_MS_traces(self, amus=[2, 17, 28, 40], t_range=None,
+                       figsize=(10, 7)):
+        """Plot individual m/z traces"""
+        if t_range is None:
+            t_range = [0, self.MS_times.shape[1]]
+        ti0, ti1 = t_range
+        fig = plt.figure(figsize=figsize)
+        ax = fig.add_subplot(111, xlabel='Time / min', ylabel='m/z fraction')
+        for amu in amus:
+            i = np.searchsorted(self.MS_amus[:, 0], amu)
+            ax.plot(self.MS_times[0, ti0:ti1], self.MS_fracs[i, ti0:ti1], 
+                    label=f"m/z {amu}")
+        ax.legend()
+        fig.tight_layout()
+        return fig, ax
+        
