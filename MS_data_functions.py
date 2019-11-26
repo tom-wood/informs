@@ -1404,6 +1404,7 @@ class Calibration_Experiment:
         self.MS_amus = None
         self.MS_ps = None
         self.MS_fracs = None
+        self.gas_mixes = {}
     
     def get_fnames(self):
         import os
@@ -1532,4 +1533,62 @@ class Calibration_Experiment:
         ax.legend()
         fig.tight_layout()
         return fig, ax
+    
+    def update_mixes(self, s, tvals, flows=None):
+        """Assign times where gases/gas mixtures are at equilibrium
         
+        Args:
+            s: string---can be 'ar', 'nh3', 'n2', 'arnh3', 'arn2', 'nh3h2n2'
+            tvals: beginning and end times of equilibrium
+        """
+        tis = np.searchsorted(self.MS_times[0], tvals)
+        if len(s) < 4:
+            self.gas_mixes.update({s.lower() : Mixture(tis, self.MS_fracs,
+                                   flows=flows)})
+        elif 'ar' in s.lower() and 'nh3' in s.lower():
+            self.gas_mixes.update({'arnh3' : Mixture(tis, self.MS_fracs,
+                                                     flows=flows)})
+        elif 'ar' in s.lower() and 'n2' in s.lower():
+            self.gas_mixes.update({'arn2' : Mixture(tis, self.MS_fracs,
+                                                    flows=flows)})
+        elif 'nh3' in s.lower() and 'n2' in s.lower() and 'h2' in s.lower():
+            self.gas_mixes.update({'nh3h2n2' : Mixture(tis, self.MS_fracs,
+                                                       flows=flows)})
+
+class Mixture:
+    def __init__(self, tis, MS_fracs, flows=None):
+        self.cutoff = 0.005
+        self.tis = tis
+        self.get_average_fracs(MS_fracs)
+        self.flows = flows
+        print(self)
+    
+    def get_average_fracs(self, MS_fracs):
+        ti0, ti1 = self.tis
+        self.av_fracs = MS_fracs[:, ti0:ti1].mean(axis=1)
+        self.std_fracs = MS_fracs[:, ti0:ti1].std(axis=1)
+    
+    def __str__(self):
+        inds = self.av_fracs > self.cutoff
+        fracs = self.av_fracs[inds]
+        amus = (np.arange(self.av_fracs.shape[0]) + 1)[inds]
+        s = f'Mixture (all fracs > {self.cutoff}):\n\tm/z\tfrac\n'
+        for amu, f in zip(amus, fracs):
+            s += f'\t{amu}\t{f:.3f}\n'
+        return s
+    
+    def get_fracs_above_cutoff(self):
+        inds = self.av_fracs > self.cutoff
+        fracs = self.av_fracs[inds]
+        fracs /= np.sum(fracs)
+        amus = (np.arange(self.av_fracs.shape[0]) + 1)[inds]
+        return amus, fracs
+    
+    def plot_bar(self, figsize=(10, 7)):
+        amus, fracs = self.get_fracs_above_cutoff()
+        fig = plt.figure(figsize=figsize)
+        ax = fig.add_subplot(111, xlabel='m/z', 
+                             ylabel='Fragmentation fraction')
+        ax.bar(amus, fracs)
+        fig.tight_layout()
+        return fig, ax
