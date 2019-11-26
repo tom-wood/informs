@@ -1534,30 +1534,36 @@ class Calibration_Experiment:
         fig.tight_layout()
         return fig, ax
     
-    def update_mixes(self, s, tvals, flows=None):
+    def update_mixes(self, s, tvals, flows=None, cutoff=None):
         """Assign times where gases/gas mixtures are at equilibrium
         
         Args:
             s: string---can be 'ar', 'nh3', 'n2', 'arnh3', 'arn2', 'nh3h2n2'
             tvals: beginning and end times of equilibrium
+            flows: list of flows in order (optional, if non-extant, then flows
+            assumed to be the same)
+            cutoff: cutoff fraction above which to consider things relevant
         """
         tis = np.searchsorted(self.MS_times[0], tvals)
         if len(s) < 4:
             self.gas_mixes.update({s.lower() : Mixture(tis, self.MS_fracs,
-                                   flows=flows)})
+                                   flows=flows, cutoff=cutoff)})
         elif 'ar' in s.lower() and 'nh3' in s.lower():
             self.gas_mixes.update({'arnh3' : Mixture(tis, self.MS_fracs,
-                                                     flows=flows)})
+                                                flows=flows, cutoff=cutoff)})
         elif 'ar' in s.lower() and 'n2' in s.lower():
             self.gas_mixes.update({'arn2' : Mixture(tis, self.MS_fracs,
-                                                    flows=flows)})
+                                                flows=flows, cutoff=cutoff)})
         elif 'nh3' in s.lower() and 'n2' in s.lower() and 'h2' in s.lower():
             self.gas_mixes.update({'nh3h2n2' : Mixture(tis, self.MS_fracs,
-                                                       flows=flows)})
+                                                flows=flows, cutoff=cutoff)})
 
 class Mixture:
-    def __init__(self, tis, MS_fracs, flows=None):
-        self.cutoff = 0.005
+    def __init__(self, tis, MS_fracs, flows=None, cutoff=None):
+        if cutoff:
+            self.cutoff = cutoff
+        else:
+            self.cutoff = 0.0028
         self.tis = tis
         self.get_average_fracs(MS_fracs)
         self.flows = flows
