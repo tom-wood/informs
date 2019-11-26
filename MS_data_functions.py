@@ -1584,8 +1584,12 @@ class Mixture:
         amus = (np.arange(self.av_fracs.shape[0]) + 1)[inds]
         return amus, fracs
     
-    def plot_bar(self, figsize=(10, 7)):
-        amus, fracs = self.get_fracs_above_cutoff()
+    def plot_bar(self, figsize=(10, 7), use_cutoff=True):
+        if use_cutoff:
+            amus, fracs = self.get_fracs_above_cutoff()
+        else:
+            amus = np.arange(1, 41)[self.av_fracs > 0]
+            fracs = self.av_fracs[self.av_fracs > 0]
         fig = plt.figure(figsize=figsize)
         ax = fig.add_subplot(111, xlabel='m/z', 
                              ylabel='Fragmentation fraction')
