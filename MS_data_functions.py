@@ -1397,13 +1397,17 @@ def extract_single_fit(Tfits, fits):
     return res
 
 class Calibration_Experiment:
-    def __init__(self, fpath):
+    def __init__(self, fpath, nh3_h2_n2_ratios = [0.0996, 0.6753, 0.2251],
+                 gcfs={'ar' : 1.4047 / 0.7807, 'nh3': 1., 'n2': 1. / 0.7807,
+                       'h2' : 1.0038 / 0.7807}):
         self.fpath = fpath
         self.get_fnames()
         self.MS_times = None
         self.MS_amus = None
         self.MS_ps = None
         self.MS_fracs = None
+        self.nh3_h2_n2_ratios = nh3_h2_n2_ratios
+        self.gcfs = gcfs
         self.gas_mixes = {}
     
     def get_fnames(self):
@@ -1557,6 +1561,54 @@ class Calibration_Experiment:
         elif 'nh3' in s.lower() and 'n2' in s.lower() and 'h2' in s.lower():
             self.gas_mixes.update({'nh3h2n2' : Mixture(tis, self.MS_fracs,
                                                 flows=flows, cutoff=cutoff)})
+    
+    def get_Ifactor_from_Ar_mix(self, mixture, ar_rats, gas_rats):
+        """Return ionization factor for gas from mixture with argon
+        
+        Args:
+            mixture (str): key for self.gas_mixes
+            ar_rats (tuple): amus and fractions for pure argon
+            gas_rats (tuple): amus and fractions for pure other gas
+        """
+        if 'ar' not in mixture:
+            raise ValueError("Can't get ionization factor without Ar")
+        gas = mixture[2:]
+        if gas not in self.gas_mixes.keys():
+            raise KeyError(f"Can't get ionization factor without pure {gas}")
+        mix = self.gas_mixes[mixture]
+        amus, fracs = mix.get_fracs_above_cutoff()
+        ar_fs = np.zeros(40)
+        ar_fs[ar_rats[0]-1] = ar_rats[1]
+        gas_fs = np.zeros(40)
+        gas_fs[gas_rats[0]-1] = gas_rats[1]
+        mix_fs = np.zeros(40)
+        mix_fs[amus - 1] = fracs
+        def residuals(guesses, mix_fs, ar_fs, gas_fs):
+            a, b = guesses
+            return np.abs(mix_fs - b * (a * ar_fs + (1 - a) * gas_fs))
+        from scipy.optimize import leastsq
+        p = leastsq(residuals, np.array([0.5, 1.]), args=(mix_fs, ar_fs,
+                    gas_fs))[0]
+        ar_flow = mix.flows[0] * self.gcfs['ar']
+        gas_flow = mix.flows[1] * self.gcfs[gas]
+        actual_a = ar_flow / (ar_flow + gas_flow)
+        a, b = p[0], actual_a
+        return (b / (1 - b)) / (a / (1 - a))
+    
+    def calculate_fragmentations_and_Ifactors(self):
+        for s in ['ar', 'n2', 'nh3', 'arnh3', 'arn2', 'nh3h2n2']:
+            if s not in self.gas_mixes.keys():
+                raise KeyError(f'{s} not found in gas_mixes')
+        ar_rats = self.gas_mixes['ar'].get_fracs_above_cutoff()
+        ar_I = 1.
+        nh3_rats = self.gas_mixes['nh3'].get_fracs_above_cutoff()
+        nh3_I = self.get_Ifactor_from_Ar_mix('arnh3', ar_rats, nh3_rats)
+        n2_rats = self.gas_mixes['n2'].get_fracs_above_cutoff()
+        n2_I = self.get_Ifactor_from_Ar_mix('arn2', ar_rats, n2_rats)
+        #next to do is work out h2 fragmentation ratios from the
+        #NH3/N2/H2 mixture (use unique NH3/N2 to calculate that mix and then
+        #H2 is whatever's left over in the 1-3 range)
+        return
 
 class Mixture:
     def __init__(self, tis, MS_fracs, flows=None, cutoff=None):
@@ -1566,7 +1618,10 @@ class Mixture:
             self.cutoff = 0.0028
         self.tis = tis
         self.get_average_fracs(MS_fracs)
-        self.flows = flows
+        if flows:
+            self.flows = flows
+        else:
+            self.flows = [1., 1.]
         print(self)
     
     def get_average_fracs(self, MS_fracs):
