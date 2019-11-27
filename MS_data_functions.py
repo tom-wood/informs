@@ -40,45 +40,30 @@ def mpl_style(style, size=20.0):
 class IonizationFactors:
     def __init__(self, I_ar=None, I_nh3=None, I_nd3=None, I_h2=None, I_d2=None,
                  I_n2=None):
-        self.reset(I_ar, I_nh3, I_nd3, I_h2, I_d2, I_n2)
+        self.all_Is = {'ar': I_ar, 'nh3': I_nh3, 'nd3': I_nd3, 'h2': I_h2,
+                       'd2': I_d2, 'n2': I_n2}
+        self.labels = {'ar': 'Ar', 'nh3': 'NH3', 'nd3': 'ND3', 'h2': 'H2',
+                       'd2': 'D2', 'n2': 'N2'}
+        self.reset()
         
     def __str__(self):
         s = "Ionization factors:"
-        s += ''.join([f'\n\t{i_s}\t{I}' for i_s, I in 
-                      zip(['Ar', 'NH3', 'H2', 'N2', 'ND3', 'D2'],
-                          [self.I_ar, self.I_nh3, self.I_h2, self.I_n2,
-                           self.I_nd3, self.I_d2])])
+        s += ''.join([f"\n{self.labels[k]}\t{v:.3f}" for k, v in 
+                      self.all_Is.items() if v is not None])
         return s
      
-    def reset(self, I_ar=None, I_nh3=None, I_nd3=None, I_h2=None, I_d2=None,
-              I_n2=None):
-        if I_ar is None:
-            self.I_ar = 1.000
-        else:          
-            self.I_ar = I_ar
-        if I_nh3 is None:
-            self.I_nh3 = 0.811
-        else:
-            self.I_nh3 = I_nh3
-        if I_nd3 is None:
-            self.I_nd3 = 0.775
-        else:
-            self.I_nd3 = I_nd3
-        if I_h2 is None:
-            self.I_h2 = 0.686
-        else:
-            self.I_h2 = I_h2
-        if I_d2 is None:
-            self.I_d2 = 0.252
-        else:
-            self.I_d2 = I_d2
-        if I_n2 is None:
-            self.I_n2 = 0.585
-        else:
-            self.I_n2 = I_n2
-        self.I_ndh2 = (2 * self.I_nh3 + self.I_nd3) / 3
-        self.I_nd2h = (self.I_nh3 + 2 * self.I_nd3) / 3
-        self.I_hd = (self.I_h2 + self.I_d2) / 2
+    def reset(self):
+        defaults = {'ar': 1., 'nh3': 0.811, 'nd3': 0.775, 'h2': 0.686, 
+                    'd2':0.252, 'n2': 0.585}
+        for k, v in self.all_Is.items():
+            if v is None:
+                self.all_Is.update({k: defaults[k]})
+        self.all_Is.update({'ndh2': (2 * self.all_Is['nh3'] + \
+                                     self.all_Is['nd3']) / 3,
+                            'nd2h': (self.all_Is['nh3'] + 2 * \
+                                     self.all_Is['nd3']) / 3,
+                            'hd': (self.all_Is['h2'] + self.all_Is['d2']) / 2})
+        self.labels.update({'ndh2': 'NDH2', 'nd2h': 'ND2H', 'hd': 'HD'})
 
 I_factors = IonizationFactors()
 
@@ -88,6 +73,8 @@ class FragmentationRatios:
                  d2_rats=None, n2_rats=None):
         self.all_rats = {'ar': ar_rats, 'nh3': nh3_rats, 'nd3': nd3_rats,
                          'h2': h2_rats, 'd2': d2_rats, 'n2': n2_rats}
+        self.labels = {'ar': 'Ar', 'nh3': 'NH3', 'nd3': 'ND3', 'h2': 'H2',
+                       'd2': 'D2', 'n2': 'N2'}
         self.reset()
     
     def __str__(self):
@@ -96,9 +83,11 @@ class FragmentationRatios:
             if v is None:
                 continue
             else:
-                s += f"\n{k}"
-                s += ''.join([f'\n\t{m}\t{r}' for m, r in zip(*v)])
-        return s
+                s += f"\n\n{self.labels[k]}"
+                s += ''.join([f'\n{m}\t{r}' for m, r in zip(*v)])
+        if s:
+            s = s[1:]
+        return
     
     def reset(self):
         self.all_sfs = {k:(list(zip(*v)) if v is not None else v) for k, v in self.all_rats.items()}
@@ -145,6 +134,7 @@ class FragmentationRatios:
         for c in coeffs:
             new_coeffs.append(float(c) / total)
         return new_coeffs
+    
     def nd3_fit(self, nh3_coeffs, nd3_coeffs, guesses=[0.01, 1]):
         nh3_tot = 0
         for n in nh3_coeffs[2:6]:
@@ -262,100 +252,6 @@ all_sfs = FragmentationRatios(ar_rats=([20, 36, 40], [0.1133, 0.0030, 0.8836]),
                                                        0.0024, 0.0126, 0.0147])))
                                         
                             
-#nh3_amus = [1, 2, 14, 15, 16, 17, 18, 28]
-#nh3_coeffs = np.array([0.0212, 0.0162, 0.0076, 0.0213, 0.3933, 0.5099,
-#                       0.0159, 0.0146])
-#nd3_amus = [1, 2, 4, 14, 16, 17, 18, 19, 20, 21, 22, 28]
-#nd3_coeffs = np.array([0.0101, 0.0226, 0.0114, 0.0068, 0.0158, 0.0053,
-#                       0.3890, 0.0148, 0.4944, 0.0024, 0.0126, 0.0147])
-
-#def nd3_fit(nh3_coeffs, nd3_coeffs, guesses=[0.01, 1]):
-#    nh3_tot = 0
-#    for n in nh3_coeffs[2:6]:
-#        nh3_tot += n
-#    f4, f3, f2, f1 = [n / nh3_tot for n in nh3_coeffs[2:6]]
-#    p1 = (1 - f1) / 3
-#    p2 = (1 - f2 / (1 - f1)) / 2
-#    p3 = 1 - f3 / ((1 - f1) * (1 - f2 / (1 - f1)))
-#    probs = [p1, p2, p3]
-#    nd3_tot = 0
-#    for n in nd3_coeffs[3:9]:
-#        nd3_tot += n
-#    nd3_new = [n / nd3_tot for n in nd3_coeffs[3:9]]
-#    def residuals(guesses, probs, nd3_new):
-#        x, y = guesses
-#        p1, p2, p3 = probs
-#        d14, d16, d17, d18, d19, d20 = nd3_new
-#        err = np.zeros(len(nd3_new))
-#        err[0] = np.abs(d14 - (1 - x) * 6 * y**3 * p1 * p2 * p3)
-#        err[1] = np.abs(d16 - (1 - x) * 6 * y**2 * p1 * p2 * (1 - y * p3))
-#        err[2] = np.abs(d17 - 2 * x * y * p1 * (2 - y * p2 - p2))
-#        err[3] = np.abs(d18 - p1 * (1 - 2 * y * p2) * (3 * y * (1 - x) + x))
-#        err[4] = np.abs(d19 - x * (1 - p1 - 2 * y * p1))
-#        err[5] = np.abs(d20 - (1 - x) * (1 - 3 * y * p1))
-#        return err
-#    params = leastsq(residuals, guesses, args=(probs, nd3_new))
-#    p = list(params[0])
-#    fit14 = (1 - p[0]) * 6 * p[1]**3 * p1 * p2 * p3
-#    fit16 = (1 - p[0]) * 6 * p[1]**2 * p1 * p2 * (1 - p[1] * p3)
-#    fit17 = 2 * p[0] * p[1] * p1 * (1 - p[1] * p2 - p2)
-#    fit18 = p1 * (1 - 2 * p[1] * p2) * (3 * p[1] * (1 - p[0]) + p[0])
-#    fit19 = p[0] * (1 - p1 - 2 * p[1] * p1)
-#    fit20 = (1 - p[0]) * (1 - 3 * p[1] * p1)
-#    fits = [fit14, fit16, fit17, fit18, fit19, fit20]
-#    return p, fits
-
-#nd3_fit gives the atom % of H in ND3 as 1.367 (i.e. 0.01367).
-#Therefore we take out 17, 19 and 21 peaks and modify 18 peak
-#nd3_amus = [amu for amu in nd3_amus if amu not in [17, 19, 21]]
-#nd3_sfs = []
-#for i, c in enumerate(nd3_coeffs):
-#    if i not in [5, 7, 9]:
-#        if i == 6:
-#            coeff = c * (1 - (0.0399 * 2) / 3)
-#        else:
-#            coeff = c
-#        nd3_sfs.append(coeff)
-
-def normalize_coeffs(coeffs):
-    total = 0
-    for c in coeffs:
-        total += c
-    new_coeffs = []
-    for c in coeffs:
-        new_coeffs.append(float(c) / total)
-    return new_coeffs
-
-#nd3_sfs = normalize_coeffs(nd3_sfs)
-#nd3_sfs = [(nd3_amus[i], s) for i, s in enumerate(nd3_sfs)]
-#nh3_sfs = [(nh3_amus[i], s) for i, s in enumerate(nh3_coeffs)]
-
-#now work out ndh2 and nd2h sfs
-#y = nd3_fit(nh3_coeffs, nd3_coeffs)[0][1]
-#nh3_tot = 0
-#for n in nh3_coeffs[2:6]:
-#    nh3_tot += n
-#f4, f3, f2, f1 = [n / nh3_tot for n in nh3_coeffs[2:6]]
-#p1 = (1 - f1) / 3
-#p2 = (1 - f2 / (1 - f1)) / 2
-#p3 = 1 - f3 / ((1 - f1) * (1 - f2 / (1 - f1)))
-#
-#ndh2_temp_sfs = [6 * y * p1 * p2 * p3, 4 * y * p1 * p2 * (1 - p3),
-#                 y * p1 * (1 - 2 * p2) + 2 * p1 * p2 * (1 - y * p3),
-#                 2 * p1 * (1 - y * p2 - p2), 1 - 2 * p1 - y * p1, 
-#                 0, 0, 0, 0, 0]
-#nd2h_temp_sfs = [6 * y**2 * p1 * p2 * p3, 2 * y**2 * p1 * p2 * (1 - p3),
-#                 4 * y * p1 * p2 * (1 - y * p3), 
-#                 2 * y * p1 * (1 - p2 - y * p2), p1 * (1 - 2 * y * p2),
-#                 1 - p1 - 2 * y * p1, 0, 0, 0, 0]
-#ex_H = nh3_sfs[-2][1] / nh3_sfs[-3][-1]
-#ex_D = nd3_sfs[-2][1] / nd3_sfs[-3][-1]
-
-#other gases:
-#h2_sfs = [(1, 0.3580), (2, 0.6349), (3, 0.0071)]
-#d2_sfs = [(1, 0.0377), (2, 0.0070), (3, 0.0039), (4, 0.9403), (6, 0.0111)]
-#n2_sfs = [(14, 0.0530), (28, 0.9401), (29, 0.0069)]
-#ar_sfs = [(20, 0.1133), (36, 0.0030), (40, 0.8836)]
 
 class Experiment:
     def __init__(self, fpath=""):
@@ -493,6 +389,15 @@ class Experiment:
         cbar.set_label(zlabel, rotation=270, labelpad=20)
         fig.tight_layout()
         return fig, ax, cbar
+            
+    def normalize_coeffs(self, coeffs):
+        total = 0
+        for c in coeffs:
+            total += c
+        new_coeffs = []
+        for c in coeffs:
+            new_coeffs.append(float(c) / total)
+        return new_coeffs
     
     def temp_fs(self, sfs, mzs):
         """Return list of normalized sensitivity factors for given mzs
@@ -509,7 +414,7 @@ class Experiment:
                 result.append(sfs[i][1])
             else:
                 result.append(0)
-        result = normalize_coeffs(result)
+        result = self.normalize_coeffs(result)
         return result
 
     #for just H, the mzs used should be 2, 3, 14, 15, 16, 17, 20, 28, 36, 40
@@ -558,7 +463,7 @@ class Experiment:
             h2_s, nh3_s, n2_s, ar_s = sfs
             I_h2, I_nh3, I_n2, I_ar = Is
             g_ar, g_n2, g_nh3, g_h2 = guesses
-            g_ar, g_n2, g_nh3, g_h2 = normalize_coeffs([g_ar, g_n2, g_nh3,
+            g_ar, g_n2, g_nh3, g_h2 = self.normalize_coeffs([g_ar, g_n2, g_nh3,
                                                         g_h2])
             nh3_s1 = np.array(nh3_s[:])
             n2_s1 = np.array(n2_s[:])
@@ -572,7 +477,7 @@ class Experiment:
         p = list(params[0])
         #Now adjust for ionization factors
         p = [p[0] / I_ar, p[1] / I_n2, p[2] / I_nh3, p[3] / I_h2]
-        p = normalize_coeffs(p)
+        p = self.normalize_coeffs(p)
         if fit_array:
             g_ar, g_n2, g_nh3, g_h2 = p
             nh3_s1 = np.array(nh3_s[:])
@@ -589,14 +494,14 @@ class Experiment:
         times, fracs = self.MS_times, self.MS_fracs
         mzs2 = [2, 3, 14, 15, 16, 17, 28, 36, 40]
         nh3_sfs2 = self.temp_fs(all_sfs.all_sfs['nh3'], mzs2)
-        I2_nh3 = I_factors.I_nh3 * (1 - all_sfs.all_sfs['nh3'][0][1] - \
+        I2_nh3 = I_factors.all_Is['nh3'] * (1 - all_sfs.all_sfs['nh3'][0][1] - \
                                     all_sfs.all_sfs['nh3'][6][1])
         n2_sfs2 = self.temp_fs(all_sfs.all_sfs['n2'], mzs2)
-        I2_n2 = I_factors.I_n2 * (1 - all_sfs.all_sfs['n2'][2][1])
+        I2_n2 = I_factors.all_Is['n2'] * (1 - all_sfs.all_sfs['n2'][2][1])
         ar_sfs2 = self.temp_fs(all_sfs.all_sfs['ar'], mzs2)
-        I2_ar = I_factors.I_ar
+        I2_ar = I_factors.all_Is['ar']
         h2_sfs2 = self.temp_fs(all_sfs.all_sfs['h2'], mzs2)
-        I2_h2 = I_factors.I_h2 * (1 - all_sfs.all_sfs['h2'][0][1])
+        I2_h2 = I_factors.all_Is['h2'] * (1 - all_sfs.all_sfs['h2'][0][1])
         #I2_h2 /= 1.3
         sfs2 = [h2_sfs2, nh3_sfs2, n2_sfs2, ar_sfs2]
         Is2 = [I2_h2, I2_nh3, I2_n2, I2_ar]
