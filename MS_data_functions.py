@@ -213,6 +213,7 @@ class FragmentationRatios:
         fit20 = (1 - p[0]) * (1 - 3 * p[1] * p1)
         fits = [fit14, fit16, fit17, fit18, fit19, fit20]
         return p, fits
+    
     def self_calibrate(self, gas_type, exp, x_range):
         """Update the fragmentation ratios for a gas_type for current data
         
@@ -283,6 +284,19 @@ class FragmentationRatios:
             self.d2_sfs = new_sfs
         else:
             print("Can't reset sensitivity factors for gas %s." % gas_type)
+    
+    def save_ratios(self, fname):
+        all_rats = [self.ar_rats, self.nh3_rats, self.nd3_rats, self.h2_rats,
+                    self.d2_rats, self.n2_rats]
+        labels = ['ar', 'nh3', 'nd3', 'h2', 'd2', 'n2']
+        with open(fname, 'w') as f:
+            for r, l in zip(all_rats, labels):
+                if r is None:
+                    continue
+                f.write(f"{l}\n")
+                for amu, frac in zip(*r):
+                    f.write(f"{amu}\t{frac}\n")
+                
 
 all_sfs = FragmentationRatios(ar_rats=([20, 36, 40], [0.1133, 0.0030, 0.8836]),
                               h2_rats=([1, 2, 3], [0.3580, 0.6349,0.0071]),
