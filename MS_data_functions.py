@@ -1608,6 +1608,30 @@ class Calibration_Experiment:
         #next to do is work out h2 fragmentation ratios from the
         #NH3/N2/H2 mixture (use unique NH3/N2 to calculate that mix and then
         #H2 is whatever's left over in the 1-3 range)
+        amus, fracs = self.gas_mixes['nh3h2n2'].get_fracs_above_cutoff()
+        nh3_fs = np.zeros(40)
+        nh3_fs[nh3_rats[0]-1] = nh3_rats[1]
+        n2_fs = np.zeros(40)
+        n2_fs[n2_rats[0]-1] = n2_rats[1]
+        mix_fs = np.zeros(40)
+        mix_fs[amus - 1] = fracs
+        def residuals(guesses, mix_fs, nh3_fs, n2_fs):
+            a, b = guesses
+            return mix_fs[3:] - (a * nh3_fs[3:] + b * n2_fs[3:])
+        from scipy.optimize import leastsq
+        p = leastsq(residuals, np.array([0.3, 0.7]), args=(mix_fs, nh3_fs,
+                    n2_fs))[0]
+        h2_amus = amus[amus <= 3]
+        h2_fracs = (mix_fs - nh3_fs * p[0])[:3]
+        h2_f = np.sum(h2_fracs)
+        h2_fracs /= h2_f
+        h2_I = h2_f * n2_I / ((self.nh3_h2_n2_ratios[1] / \
+                               self.nh3_h2_n2_ratios[2]) * p[1])
+        h2_rats = (h2_amus, h2_fracs)
+        self.Ifactors = IonizationFactors(I_ar=ar_I, I_nh3=nh3_I, I_h2=h2_I,
+                                          I_n2=n2_I)
+        self.frag_rats = FragmentationRatios(ar_rats=ar_rats, nh3_rats=nh3_rats,
+                                             n2_rats=n2_rats, h2_rats=h2_rats)
         return
 
 class Mixture:
