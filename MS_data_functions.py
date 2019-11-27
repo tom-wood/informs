@@ -86,90 +86,57 @@ I_factors = IonizationFactors()
 class FragmentationRatios:
     def __init__(self, ar_rats=None, nh3_rats=None, nd3_rats=None, h2_rats=None,
                  d2_rats=None, n2_rats=None):
-        self.ar_rats = ar_rats
-        self.nh3_rats = nh3_rats
-        self.nd3_rats = nd3_rats
-        self.h2_rats = h2_rats
-        self.d2_rats = d2_rats
-        self.n2_rats = n2_rats
+        self.all_rats = {'ar': ar_rats, 'nh3': nh3_rats, 'nd3': nd3_rats,
+                         'h2': h2_rats, 'd2': d2_rats, 'n2': n2_rats}
         self.reset()
     
     def __str__(self):
-        def get_rats(rats):
-            return ''.join([f'\n\t{m}\t{r}' for m, r in zip(*rats)])
-        s = (f"Ar ratios:\n\tm/z\tfraction {get_rats(self.ar_rats)}\n"
-             f"NH3 ratios:\n\tm/z\tfraction {get_rats(self.nh3_rats)}\n"
-             f"H2 ratios:\n\tm/z\tfraction {get_rats(self.h2_rats)}\n"
-             f"NH3 ratios:\n\tm/z\tfraction {get_rats(self.n2_rats)}\n"
-             f"ND3 ratios:\n\tm/z\tfraction {get_rats(self.nd3_rats)}\n"
-             f"D2 ratios:\n\tm/z\tfraction {get_rats(self.d2_rats)}\n")
+        s = ''
+        for k, v in self.all_rats.items():
+            if v is None:
+                continue
+            else:
+                s += f"\n{k}"
+                s += ''.join([f'\n\t{m}\t{r}' for m, r in zip(*v)])
         return s
     
     def reset(self):
-        if type(self.ar_rats) != type(None):
-            self.ar_sfs = [(mz, self.ar_rats[1][i]) for i, mz in 
-                           enumerate(self.ar_rats[0])]
-        else:
-            self.ar_sfs = None
-        if type(self.nh3_rats) != type(None):
-            self.nh3_sfs = [(mz, self.nh3_rats[1][i]) for i, mz in 
-                            enumerate(self.nh3_rats[0])]
-        else:
-            self.nh3_sfs = None
-        if type(self.nd3_rats) != type(None):
-            self.nd3_sfs = [(mz, self.nd3_rats[1][i]) for i, mz in 
-                            enumerate(self.nd3_rats[0])]
-        else:
-            self.nd3_sfs = None
-        if type(self.h2_rats) != type(None):
-            self.h2_sfs = [(mz, self.h2_rats[1][i]) for i, mz in 
-                            enumerate(self.h2_rats[0])]
-        else:
-            self.h2_sfs = None
-        if type(self.d2_rats) != type(None):
-            self.d2_sfs = [(mz, self.d2_rats[1][i]) for i, mz in 
-                            enumerate(self.d2_rats[0])]
-        else:
-            self.d2_sfs = None
-        if type(self.n2_rats) != type(None):
-            self.n2_sfs = [(mz, self.n2_rats[1][i]) for i, mz in 
-                            enumerate(self.n2_rats[0])]
-        else:
-            self.n2_sfs = None
-        if type(self.nh3_rats) != type(None) and type(self.nd3_rats) != type(None):
-            nd3_amus = [amu for amu in self.nd3_rats[0] if amu not in [17, 19, 21]]
-            self.nd3_sfs = []
-            for i, c in enumerate(self.nd3_rats[1]):
+        self.all_sfs = {k:(list(zip(*v)) if v is not None else v) for k, v in self.all_rats.items()}
+        if self.all_rats['nh3'] is not None and self.all_rats['nd3'] is not None:
+            nd3_amus = [amu for amu in self.all_rats['nd3'][0] if amu not in 
+                        [17, 19, 21]]
+            self.all_sfs['nd3'] = []
+            for i, c in enumerate(self.all_rats['nd3'][1]):
                 if i not in [5, 7, 9]:
                     if i == 6:
                         coeff = c * (1 - (0.0399 * 2) / 3)
                     else:
                         coeff = c
-                    self.nd3_sfs.append(coeff)
-            self.nd3_sfs
-            self.nd3_sfs = self.normalize_coeffs(self.nd3_sfs)
-            self.nd3_sfs = [(nd3_amus[i], s) for i, s in 
-                            enumerate(self.nd3_sfs)]
-            self.nh3_sfs = [(self.nh3_rats[0][i], s) for i, s in 
-                             enumerate(self.nh3_rats[1])]
-            y = self.nd3_fit(self.nh3_rats[1], self.nd3_rats[1])[0][1]
+                    self.all_sfs['nd3'].append(coeff)
+            self.all_sfs['nd3'] = self.normalize_coeffs(self.all_sfs['nd3'])
+            self.all_sfs['nd3'] = [(nd3_amus[i], s) for i, s in 
+                        enumerate(self.all_sfs['nd3'])]
+            self.all_sfs['nh3'] = [(self.all_rats['nh3'][0][i], s) for i, s in 
+                             enumerate(self.all_rats['nh3'][1])]
+            y = self.nd3_fit(self.all_rats['nh3'][1], self.all_rats['nd3'][1])[0][1]
             nh3_tot = 0
-            for n in self.nh3_rats[1][2:6]:
+            for n in self.all_rats['nh3'][1][2:6]:
                 nh3_tot += n
-            f4, f3, f2, f1 = [n / nh3_tot for n in self.nh3_rats[1][2:6]]
+            f4, f3, f2, f1 = [n / nh3_tot for n in self.all_rats['nh3'][1][2:6]]
             p1 = (1 - f1) / 3
             p2 = (1 - f2 / (1 - f1)) / 2
             p3 = 1 - f3 / ((1 - f1) * (1 - f2 / (1 - f1)))
-            self.ndh2_temp_sfs = [6 * y * p1 * p2 * p3, 4 * y * p1 * p2 * (1 - p3),
+            self.all_sfs['ndh2'] = [6 * y * p1 * p2 * p3, 4 * y * p1 * p2 * (1 - p3),
                                   y * p1 * (1 - 2 * p2) + 2 * p1 * p2 * (1 - y * p3),
                                   2 * p1 * (1 - y * p2 - p2), 1 - 2 * p1 - y * p1, 
                                   0, 0, 0, 0, 0]
-            self.nd2h_temp_sfs = [6 * y**2 * p1 * p2 * p3, 2 * y**2 * p1 * p2 * (1 - p3),
+            self.all_sfs['nd2h'] = [6 * y**2 * p1 * p2 * p3, 2 * y**2 * p1 * p2 * (1 - p3),
                                   4 * y * p1 * p2 * (1 - y * p3), 
                                   2 * y * p1 * (1 - p2 - y * p2), p1 * (1 - 2 * y * p2),
                                   1 - p1 - 2 * y * p1, 0, 0, 0, 0]
-            self.ex_H = self.nh3_sfs[-2][1] / self.nh3_sfs[-3][-1]
-            self.ex_D = self.nd3_sfs[-2][1] / self.nd3_sfs[-3][-1]
+            self.ex_H = self.all_sfs['nh3'][-2][1] / self.all_sfs['nh3'][-3][-1]
+            self.ex_D = self.all_sfs['nd3'][-2][1] / self.all_sfs['nd3'][-3][-1]
+            
     def normalize_coeffs(self, coeffs):
         total = 0
         for c in coeffs:
@@ -234,69 +201,50 @@ class FragmentationRatios:
                 fracs_reduced = np.column_stack((fracs_reduced,
                                                 fracs[:, xs:x_ends[1:][i]]))
         fracs_av = np.mean(fracs_reduced, axis=1)
-        if gas_type == 'Ar':
+        key = gas_type.lower()
+        if key in self.all_sfs.keys():
             new_coeffs = []
-            for sf in self.ar_sfs:
+            for sf in self.all_sfs[key]:
                 av_frac = fracs_av[int(np.where(amus[:, 0] == sf[0])[0])]
                 new_coeffs.append(av_frac)
             new_coeffs = self.normalize_coeffs(new_coeffs)
-            new_sfs = [(sf[0], new_coeffs[i]) for i, sf in enumerate(self.ar_sfs)]
-            self.ar_sfs = new_sfs
-        elif gas_type == 'NH3':
-            new_coeffs = []
-            for sf in self.nh3_sfs:
-                av_frac = fracs_av[int(np.where(amus[:, 0] == sf[0])[0])]
-                new_coeffs.append(av_frac)
-            new_coeffs = self.normalize_coeffs(new_coeffs)
-            new_sfs = [(sf[0], new_coeffs[i]) for i, sf in enumerate(self.nh3_sfs)]
-            self.nh3_sfs = new_sfs
-        elif gas_type == 'ND3':
-            new_coeffs = []
-            for sf in self.nd3_sfs:
-                av_frac = fracs_av[int(np.where(amus[:, 0] == sf[0])[0])]
-                new_coeffs.append(av_frac)
-            new_coeffs = self.normalize_coeffs(new_coeffs)
-            new_sfs = [(sf[0], new_coeffs[i]) for i, sf in enumerate(self.nd3_sfs)]
-            self.nd3_sfs = new_sfs
-        elif gas_type == 'N2':
-            new_coeffs = []
-            for sf in self.n2_sfs:
-                av_frac = fracs_av[int(np.where(amus[:, 0] == sf[0])[0])]
-                new_coeffs.append(av_frac)
-            new_coeffs = self.normalize_coeffs(new_coeffs)
-            new_sfs = [(sf[0], new_coeffs[i]) for i, sf in enumerate(self.n2_sfs)]
-            self.n2_sfs = new_sfs
-        elif gas_type == 'H2':
-            new_coeffs = []
-            for sf in self.h2_sfs:
-                av_frac = fracs_av[int(np.where(amus[:, 0] == sf[0])[0])]
-                new_coeffs.append(av_frac)
-            new_coeffs = self.normalize_coeffs(new_coeffs)
-            new_sfs = [(sf[0], new_coeffs[i]) for i, sf in enumerate(self.h2_sfs)]
-            self.h2_sfs = new_sfs
-        elif gas_type == 'D2':
-            new_coeffs = []
-            for sf in self.d2_sfs:
-                av_frac = fracs_av[int(np.where(amus[:, 0] == sf[0])[0])]
-                new_coeffs.append(av_frac)
-            new_coeffs = self.normalize_coeffs(new_coeffs)
-            new_sfs = [(sf[0], new_coeffs[i]) for i, sf in enumerate(self.d2_sfs)]
-            self.d2_sfs = new_sfs
+            new_sfs = [(sf[0], new_coeffs[i]) for i, sf in enumerate(self.all_sfs[key])]
+            self.all_sfs[key] = new_sfs
         else:
             print("Can't reset sensitivity factors for gas %s." % gas_type)
     
     def save_ratios(self, fname):
-        all_rats = [self.ar_rats, self.nh3_rats, self.nd3_rats, self.h2_rats,
-                    self.d2_rats, self.n2_rats]
-        labels = ['ar', 'nh3', 'nd3', 'h2', 'd2', 'n2']
         with open(fname, 'w') as f:
-            for r, l in zip(all_rats, labels):
+            for l, r in self.all_rats.items():
                 if r is None:
                     continue
                 f.write(f"{l}\n")
                 for amu, frac in zip(*r):
                     f.write(f"{amu}\t{frac}\n")
-                
+    
+    def load_ratios(self, fname, sep='\t'):
+        """Load previously saved fragmentation ratios
+        
+        Args:
+            fname: filepath to saved ratios
+            sep: separator for saved ratios (defaults to tab)
+        """
+        with open(fname, 'r') as f:
+            sfs = []
+            key = None
+            for line in f:
+                if line.strip() in self.all_rats.keys():
+                    if key:
+                        self.all_sfs[key] = sfs
+                        self.all_rats[key] = list(zip(*sfs))
+                    key = line.strip()
+                    sfs = []
+                else:
+                    sfs.append(line.strip().split('\t'))
+                    sfs[-1] = (int(sfs[-1][0]), float(sfs[-1][1]))
+            self.all_sfs[key] = sfs
+            self.all_rats[key] = list(zip(*sfs))
+                    
 
 all_sfs = FragmentationRatios(ar_rats=([20, 36, 40], [0.1133, 0.0030, 0.8836]),
                               h2_rats=([1, 2, 3], [0.3580, 0.6349,0.0071]),
@@ -640,15 +588,15 @@ class Experiment:
         all_sfs = self.all_sfs
         times, fracs = self.MS_times, self.MS_fracs
         mzs2 = [2, 3, 14, 15, 16, 17, 28, 36, 40]
-        nh3_sfs2 = self.temp_fs(all_sfs.nh3_sfs, mzs2)
-        I2_nh3 = I_factors.I_nh3 * (1 - all_sfs.nh3_sfs[0][1] - \
-                                    all_sfs.nh3_sfs[6][1])
-        n2_sfs2 = self.temp_fs(all_sfs.n2_sfs, mzs2)
-        I2_n2 = I_factors.I_n2 * (1 - all_sfs.n2_sfs[2][1])
-        ar_sfs2 = self.temp_fs(all_sfs.ar_sfs, mzs2)
+        nh3_sfs2 = self.temp_fs(all_sfs.all_sfs['nh3'], mzs2)
+        I2_nh3 = I_factors.I_nh3 * (1 - all_sfs.all_sfs['nh3'][0][1] - \
+                                    all_sfs.all_sfs['nh3'][6][1])
+        n2_sfs2 = self.temp_fs(all_sfs.all_sfs['n2'], mzs2)
+        I2_n2 = I_factors.I_n2 * (1 - all_sfs.all_sfs['n2'][2][1])
+        ar_sfs2 = self.temp_fs(all_sfs.all_sfs['ar'], mzs2)
         I2_ar = I_factors.I_ar
-        h2_sfs2 = self.temp_fs(all_sfs.h2_sfs, mzs2)
-        I2_h2 = I_factors.I_h2 * (1 - all_sfs.h2_sfs[0][1])
+        h2_sfs2 = self.temp_fs(all_sfs.all_sfs['h2'], mzs2)
+        I2_h2 = I_factors.I_h2 * (1 - all_sfs.all_sfs['h2'][0][1])
         #I2_h2 /= 1.3
         sfs2 = [h2_sfs2, nh3_sfs2, n2_sfs2, ar_sfs2]
         Is2 = [I2_h2, I2_nh3, I2_n2, I2_ar]
