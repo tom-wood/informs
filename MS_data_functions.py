@@ -39,12 +39,14 @@ def mpl_style(style, size=20.0):
 #Ionization factors (from Ar + gas mixture)
 class IonizationFactors:
     def __init__(self, I_ar=None, I_nh3=None, I_nd3=None, I_h2=None, I_d2=None,
-                 I_n2=None):
+                 I_n2=None, fname=None, sep='\t'):
         self.all_Is = {'ar': I_ar, 'nh3': I_nh3, 'nd3': I_nd3, 'h2': I_h2,
                        'd2': I_d2, 'n2': I_n2}
         self.labels = {'ar': 'Ar', 'nh3': 'NH3', 'nd3': 'ND3', 'h2': 'H2',
                        'd2': 'D2', 'n2': 'N2'}
         self.reset()
+        if fname:
+            self.load_factors(fname, sep)
         
     def __str__(self):
         s = "Ionization factors:"
@@ -64,6 +66,19 @@ class IonizationFactors:
                                      self.all_Is['nd3']) / 3,
                             'hd': (self.all_Is['h2'] + self.all_Is['d2']) / 2})
         self.labels.update({'ndh2': 'NDH2', 'nd2h': 'ND2H', 'hd': 'HD'})
+    
+    def save_factors(self, fname):
+        with open(fname, 'w') as f:
+            for k, v in self.all_Is.items():
+                f.write(f'{k}\t{v:.4f}\n')
+    
+    def load_factors(self, fname, sep='\t'):
+        with open(fname, 'r') as f:
+            for line in f:
+                if line == '\n':
+                    continue
+                k, v = line.strip().split(sep)
+                self.all_Is.update({k: float(v)})
 
 I_factors = IonizationFactors()
 
@@ -230,7 +245,7 @@ class FragmentationRatios:
                     key = line.strip()
                     sfs = []
                 else:
-                    sfs.append(line.strip().split('\t'))
+                    sfs.append(line.strip().split(sep))
                     sfs[-1] = (int(sfs[-1][0]), float(sfs[-1][1]))
             self.all_sfs[key] = sfs
             self.all_rats[key] = list(zip(*sfs))
