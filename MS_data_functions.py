@@ -85,12 +85,14 @@ I_factors = IonizationFactors()
 #coefficients at 100% single gas purity first
 class FragmentationRatios:
     def __init__(self, ar_rats=None, nh3_rats=None, nd3_rats=None, h2_rats=None,
-                 d2_rats=None, n2_rats=None):
+                 d2_rats=None, n2_rats=None, fname=None, sep='\t'):
         self.all_rats = {'ar': ar_rats, 'nh3': nh3_rats, 'nd3': nd3_rats,
                          'h2': h2_rats, 'd2': d2_rats, 'n2': n2_rats}
         self.labels = {'ar': 'Ar', 'nh3': 'NH3', 'nd3': 'ND3', 'h2': 'H2',
                        'd2': 'D2', 'n2': 'N2'}
         self.reset()
+        if fname:
+            self.load_ratios(fname, sep)
     
     def __str__(self):
         s = ''
