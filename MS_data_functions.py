@@ -46,7 +46,7 @@ class IonizationFactors:
                        'd2': 'D2', 'n2': 'N2'}
         self.reset()
         if fname:
-            self.load_factors(fname, sep)
+            self.load_factors(fname, sep=sep)
         
     def __str__(self):
         s = "Ionization factors:"
@@ -80,8 +80,6 @@ class IonizationFactors:
                 k, v = line.strip().split(sep)
                 self.all_Is.update({k: float(v)})
 
-I_factors = IonizationFactors()
-
 #coefficients at 100% single gas purity first
 class FragmentationRatios:
     def __init__(self, ar_rats=None, nh3_rats=None, nd3_rats=None, h2_rats=None,
@@ -104,9 +102,24 @@ class FragmentationRatios:
                 s += ''.join([f'\n{m}\t{r}' for m, r in zip(*v)])
         if s:
             s = s[1:]
-        return
+        return s
     
     def reset(self):
+        defaults = {'ar': ([20, 36, 40], [0.1133, 0.0030, 0.8836]),
+                    'h2': ([1, 2, 3], [0.3580, 0.6349,0.0071]),
+                    'd2': ([1, 2, 3, 4, 6], 
+                           [0.0377, 0.0070, 0.0039, 0.9403, 0.0111]),
+                    'n2': ([14, 28, 29], [0.0530, 0.9401, 0.0069]),
+                    'nh3': ([1, 2, 14, 15, 16, 17, 18, 28],
+                            np.array([0.0212, 0.0162, 0.0076, 0.0213, 0.3933,
+                                      0.5099, 0.0159, 0.0146])),
+                    'nd3': ([1, 2, 4, 14, 16, 17, 18, 19, 20, 21, 22, 28], 
+                            np.array([0.0101, 0.0226, 0.0114, 0.0068, 0.0158,
+                                      0.0053, 0.3890, 0.0148, 0.4944, 0.0024, 
+                                      0.0126, 0.0147]))}
+        for k, v in self.all_rats.items():
+            if v is None:
+                self.all_rats.update({k: defaults[k]})
         self.all_sfs = {k:(list(zip(*v)) if v is not None else v) for k, v in self.all_rats.items()}
         if self.all_rats['nh3'] is not None and self.all_rats['nd3'] is not None:
             nd3_amus = [amu for amu in self.all_rats['nd3'][0] if amu not in 
@@ -271,7 +284,7 @@ all_sfs = FragmentationRatios(ar_rats=([20, 36, 40], [0.1133, 0.0030, 0.8836]),
                             
 
 class Experiment:
-    def __init__(self, fpath=""):
+    def __init__(self, fpath="", I_factors=None, sfs=None):
         self.csv_fpath = ""
         self.log_fpath = ""
         self.save_fpath = ""
@@ -282,8 +295,14 @@ class Experiment:
         self.MS_fit_labels = None
         self.log_data = None
         self.fpath = fpath
-        self.all_sfs = all_sfs
-        self.Is = I_factors
+        if sfs is None:
+            self.all_sfs = FragmentationRatios()
+        else:
+            self.all_sfs = all_sfs
+        if I_factors is None:
+            self.Is = IonizationFactors()
+        else:
+            self.Is = I_factors
         self.CRD = False
         self.Tc_indices = None
         self.av_eq_T = None
