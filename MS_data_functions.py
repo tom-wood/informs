@@ -60,7 +60,11 @@ class IonizationFactors:
                     'd2':0.252, 'n2': 0.585}
         for k, v in self.all_Is.items():
             if v is None:
+                if k not in defaults.keys():
+                    continue
                 self.all_Is.update({k: defaults[k]})
+            if k not in self.original_Is.keys():
+                continue
             elif v != self.original_Is[k]:
                 self.all_Is.update({k: self.original_Is[k]})
         self.all_Is.update({'ndh2': (2 * self.all_Is['nh3'] + \
@@ -976,8 +980,8 @@ class Experiment:
         else:
             self.CRD = False
             self.log_data = pd.read_csv(self.log_fpath, sep='\t', 
-                                        usecols=[4, 8, 9, 10, 11, 12, 15, 16, 17],
-                                        names=['Time', 'MFM', 'MFC1_set', 'MFC1',
+                                        usecols=[4, 6, 8, 9, 10, 11, 12, 15, 16, 17],
+                                        names=['Time', 'Pressure', 'MFM', 'MFC1_set', 'MFC1',
                                                'MFC2_set', 'MFC2', 'Main', 
                                                'Main_set', 'Aux'], skiprows=1)
     
