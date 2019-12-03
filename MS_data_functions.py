@@ -970,8 +970,8 @@ class Experiment:
         if CRD:
             self.CRD = True
             self.log_data = pd.read_csv(self.log_fpath, sep='\t', 
-        	                   usecols=[4, 8, 9, 10, 11, 12, 23, 24],
-        			   names=['Time', 'MFM', 'MFC1_set', 'MFC1',
+        	                   usecols=[4, 6, 8, 9, 10, 11, 12, 23, 24],
+        			   names=['Time', 'Pressure', 'MFM', 'MFC1_set', 'MFC1',
         			          'MFC2_set', 'MFC2', 'CRD', 'CRD_set'], skiprows=1)
         else:
             self.CRD = False
