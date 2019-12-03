@@ -44,6 +44,7 @@ class IonizationFactors:
                        'd2': I_d2, 'n2': I_n2}
         self.labels = {'ar': 'Ar', 'nh3': 'NH3', 'nd3': 'ND3', 'h2': 'H2',
                        'd2': 'D2', 'n2': 'N2'}
+        self.original_Is = self.all_Is.copy()
         self.reset()
         if fname:
             self.load_factors(fname, sep=sep)
@@ -60,6 +61,8 @@ class IonizationFactors:
         for k, v in self.all_Is.items():
             if v is None:
                 self.all_Is.update({k: defaults[k]})
+            elif v != self.original_Is[k]:
+                self.all_Is.update({k: self.original_Is[k]})
         self.all_Is.update({'ndh2': (2 * self.all_Is['nh3'] + \
                                      self.all_Is['nd3']) / 3,
                             'nd2h': (self.all_Is['nh3'] + 2 * \
