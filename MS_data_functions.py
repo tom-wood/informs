@@ -86,6 +86,7 @@ class IonizationFactors:
                     continue
                 k, v = line.strip().split(sep)
                 self.all_Is.update({k: float(v)})
+        self.original_Is = self.all_Is.copy()
 
 #coefficients at 100% single gas purity first
 class FragmentationRatios:
