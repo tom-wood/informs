@@ -1128,14 +1128,19 @@ class Experiment:
         Te1, EA1, Te2, EA2, f = params
         return f * self.gomp_Te(T, Te1, EA1) + (1 - f) * self.gomp_Te(T, Te2, EA2)
     
-    def fit_single_Te(self, guesses):
+    def fit_single_Te(self, guesses, use_conv2=False):
         """Return best Te and Ea parameters for function to data
     
         Args:
             guesses: list of Te, EA guesses
+            use_conv2 (bool): whether to use conversion data from N2 fraction
+            or keep using the NH3 fraction calculation
         """
         T = self.av_eq_T + 273.15
-        C = self.conv
+        if use_conv2:
+            C = self.conv2
+        else:
+            C = self.conv
         C = 1 - (1 - C) / (1 + C)
         self.Tfit = np.linspace(T.min(), T.max(), 1000)
         R = 8.3144598e-3 # in kJ mol^-1 K^-1
@@ -1161,14 +1166,19 @@ class Experiment:
         self.conv_single_fit = self.gomp_Te(self.Tfit, p[0], p[1])
         self.conv_single_corr = self.cov2corr(params[1])
     
-    def fit_double_Te(self, guesses):
+    def fit_double_Te(self, guesses, use_conv2=False):
         """Return best Te1, EA1, Te2, EA2, f parameters for function to data
     
         Args:
             guesses: list of A1, EA1, A2, EA2 guesses
+            use_conv2 (bool): whether to use conversion data from N2 fraction
+            or keep using the NH3 fraction calculation
         """
         T = self.av_eq_T + 273.15
-        C = self.conv
+        if use_conv2:
+            C = self.conv2
+        else:
+            C = self.conv
         C = 1 - (1 - C) / (1 + C)
         self.Tfit = np.linspace(T.min(), T.max(), 1000)
         def residuals(guesses, T, C):
@@ -1195,7 +1205,8 @@ class Experiment:
         res = (A.T / d).T / d
         return res
     
-    def plot_conv_guesses(self, guesses, figsize=(10, 7), dpi=None):
+    def plot_conv_guesses(self, guesses, figsize=(10, 7), dpi=None,
+                          use_conv2=False):
         """Plot traces from log file
         
         Args:
@@ -1203,7 +1214,13 @@ class Experiment:
             double fit.
             figsize (tup): (m, n) determines dimensions of figure
             dpi: resolution of the plot
+            use_conv2 (bool): whether to use conversion data from N2 fraction
+            or keep using the NH3 fraction calculation
         """
+        if use_conv2:
+            C = self.conv2
+        else:
+            C = self.conv
         if self.conv is None or self.conv2 is None:
             raise ValueError("Need to have run get_sigmoid_data first")
         T = self.av_eq_T + 273.15
@@ -1216,21 +1233,27 @@ class Experiment:
         fig = plt.figure(figsize=figsize, dpi=dpi)
         ax = fig.add_subplot(111, xlabel=u'Temperature / \u00B0C',
                              ylabel='Conversion', ylim=[0, 1])
-        ax.scatter(self.av_eq_T, self.conv, s=120)
+        ax.scatter(self.av_eq_T, C, s=120)
         ax.plot(self.Tfit - 273.15, Ccalc / (2 - Ccalc))
         fig.tight_layout()
         return fig, ax
     
     
-    def plot_conv_fit(self, figsize=(10, 7), dpi=None):
+    def plot_conv_fit(self, figsize=(10, 7), dpi=None, use_conv2=False):
         """Plot conversion with fits
         
         Args:
             figsize (tup): (m, n) determines dimensions of figure
             dpi: resolution of the plot
+            use_conv2 (bool): whether to use conversion data from N2 fraction
+            or keep using the NH3 fraction calculation
         """
         fits = []
         labels = []
+        if use_conv2:
+            C = self.conv2
+        else:
+            C = self.conv
         if self.conv_single_fit is not None:
             fits.append(self.conv_single_fit / (2 - self.conv_single_fit))
             labels.append('single')
@@ -1239,7 +1262,7 @@ class Experiment:
             labels.append('double')
         fig = plt.figure(figsize=figsize, dpi=dpi)
         ax = fig.add_subplot(111)
-        ax.scatter(self.av_eq_T, self.conv, s=120)
+        ax.scatter(self.av_eq_T, C, s=120)
         for f, l in zip(fits, labels):
             ax.plot(self.Tfit - 273.15, f, label=l)
         ax.legend()
