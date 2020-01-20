@@ -1094,12 +1094,14 @@ class Experiment:
         self.conv2 = conv2
         self.conv2_unc = conv2_unc
     
-    def plot_conv_only(self, figsize=(10, 7), dpi=None):
+    def plot_conv_only(self, figsize=(10, 7), dpi=None, use_conv2=False):
         """Plot traces from log file
         
         Args:
             figsize (tup): (m, n) determines dimensions of figure
             dpi: resolution of the plot
+            use_conv2 (bool): whether to use conversion data from N2 fraction
+            or keep using the NH3 fraction calculation
         """
         if use_conv2:
             C = self.conv2
