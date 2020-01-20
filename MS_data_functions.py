@@ -1058,12 +1058,16 @@ class Experiment:
         else:
             self.Tc_indices = TC_Indices(Tc_indices, self.log_data, CRD=False)
         
-    def get_sigmoid_data(self, index_offset=150):
+    def get_sigmoid_data(self, index_offset=150, max_fnh3=1.):
         """Return sigmoid data for all changes in temperature
         
         Args:
             index_offset: number of points to take averages over
+            max_fnh3: maximum fraction of NH3 (for experiments where more than
+            one input gas).
         """
+        if max_fnh3 > 1. or max_fnh3 < 0.:
+            raise ValueError("max_fnh3 must be between 0 and 1")
         if self.Tc_indices is None:
             self.get_temp_changes()
         times = self.log_data['Time'].values / 60.
@@ -1084,9 +1088,9 @@ class Experiment:
                                             axis=0) for Tci, Tci2 in
                                     zip(Tc_ind_mspec, Tc_ind_mspec2)])
         av_eq_mspec[av_eq_mspec < 0] = 0
-        conv = (1 - av_eq_mspec[:, 2]) / (1 + av_eq_mspec[:, 2])
-        conv_unc = conv * av_eq_mspec[:, 2] / av_eq_mspec[:, 2]
-        conv2 = 2 * av_eq_mspec[:, 1] / (1 - 2 * av_eq_mspec[:, 1])
+        conv = max_fnh3 * (1 - av_eq_mspec[:, 2]) / (1 + max_fnh3 * av_eq_mspec[:, 2])
+        conv_unc = conv * av_eq_mspec_std[:, 2] / av_eq_mspec[:, 2]
+        conv2 = 2 * av_eq_mspec[:, 1] / (max_fnh3 * (1 - 2 * av_eq_mspec[:, 1]))
         conv2_unc = conv2 * 2 * av_eq_mspec_std[:, 1] / av_eq_mspec[:, 1]
         self.av_eq_T = av_eq_T
         self.conv = conv
