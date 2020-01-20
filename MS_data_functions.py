@@ -1101,12 +1101,16 @@ class Experiment:
             figsize (tup): (m, n) determines dimensions of figure
             dpi: resolution of the plot
         """
-        if self.conv is None or self.conv2 is None:
+        if use_conv2:
+            C = self.conv2
+        else:
+            C = self.conv
+        if C is None:
             raise ValueError("Need to have run get_sigmoid_data first")
         fig = plt.figure(figsize=figsize, dpi=dpi)
         ax = fig.add_subplot(111, xlabel=u'Temperature / \u00B0C',
                              ylabel='Conversion', ylim=[0, 1])
-        ax.scatter(self.av_eq_T, self.conv, s=120)
+        ax.scatter(self.av_eq_T, C, s=120)
         fig.tight_layout()
         return fig, ax
     
