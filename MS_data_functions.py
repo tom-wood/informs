@@ -1088,7 +1088,7 @@ class Experiment:
                                             axis=0) for Tci, Tci2 in
                                     zip(Tc_ind_mspec, Tc_ind_mspec2)])
         av_eq_mspec[av_eq_mspec < 0] = 0
-        conv = max_fnh3 * (1 - av_eq_mspec[:, 2]) / (1 + max_fnh3 * av_eq_mspec[:, 2])
+        conv = (max_fnh3 - av_eq_mspec_std[:, 2]) / (max_fnh3 * (1 + av_eq_mspec_std[:, 2]))
         conv_unc = conv * av_eq_mspec_std[:, 2] / av_eq_mspec[:, 2]
         conv2 = 2 * av_eq_mspec[:, 1] / (max_fnh3 * (1 - 2 * av_eq_mspec[:, 1]))
         conv2_unc = conv2 * 2 * av_eq_mspec_std[:, 1] / av_eq_mspec[:, 1]
