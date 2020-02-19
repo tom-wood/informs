@@ -1293,6 +1293,67 @@ class Experiment:
             raise ValueError("fit_type should be 'single' or 'double'")
         fits = np.column_stack((self.Tfit - 273.15, f / (2 - f)))
         np.savetxt(sf, fits)
+    
+    def bootstrap_fits(self, fit_type='single', num_straps=200,
+                       plot_correlations=True, use_conv2=False):
+        if use_conv2:
+            data = np.column_stack((self.av_eq_T, self.conv2))
+        else:
+            data = np.column_stack((self.av_eq_T, self.conv))
+        if fit_type == 'single':
+            f = self.gomp_Te
+            self.bootstrap_single = Bootstrap_Fits(data, f, 
+                                                   self.conv_single_params,
+                                                   num_straps)
+        elif fit_type == 'double':
+            f = self.gomp_Te_fadd
+            self.bootstrap_double = Bootstrap_Fits(data, f, 
+                                                   self.conv_double_params,
+                                                   num_straps)
+
+class Bootstrap_Fits:
+    def __init__(self, data, f, init_ps, num_straps=200, pnames=None):
+        """Initialize instance of Bootstrap_Fits class
+        
+        Args:
+            data: (N, 2) array of data to be bootstrapped
+            f: function used to fit data
+            init_ps: best fit parameters to data (used as initial guesses for
+            each fit of the generated datasets).
+            num_straps: number of times to bootstrap (200 should be plenty),
+            but if more precision on uncertainty is required then go to higher
+            values.
+            pnames: list of strings of parameter names
+        """
+        self.data = data
+        self.f = f
+        self.init_ps = init_ps
+        self.num_straps = num_straps  
+        self.fitted_ps = []
+        if pnames:
+            if len(pnames) < len(init_ps):
+                self.pnames = list(pnames) + [''] * (len(init_ps) - len(pnames))
+            else:
+                self.pnames = list(pnames)[:len(init_ps)]
+        else:
+            self.pnames = [''] * len(init_ps)
+    
+    def generate_pseudo_datasets(self): 
+        inds = (np.random.rand(self.num_straps, self.data.shape[0]) \
+                * self.data.shape[0]).astype(int)
+        self.pseudo_datasets = self.data[inds]
+       
+    def residuals(self, guesses, data):
+        args = [data[:, 0]] + list(guesses)
+        return self.f(*args) - data[:, 1]
+    
+    def fit_datasets(self):
+        for pdset in self.pseudo_datasets:
+            self.fitted_ps.append(leastsq(self.residuals, self.init_ps, 
+                                          args=(pdset))[0])
+        self.fitted_ps = np.array(self.fitted_ps)
+        
+        
 
 class TC_Indices:
     def __init__(self, indices, log_data, CRD=False):
