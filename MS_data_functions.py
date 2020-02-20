@@ -1302,14 +1302,21 @@ class Experiment:
             data = np.column_stack((self.av_eq_T, self.conv))
         if fit_type == 'single':
             f = self.gomp_Te
+            labels =  [u'T$_e$ / \u00B0C', 'E$_A$ / kJ mol$^{-1}$']
             self.bootstrap_single = Bootstrap_Fits(data, f, 
                                                    self.conv_single_params,
-                                                   num_straps)
+                                                   num_straps, labels)
+            boot = self.bootstrap_single
         elif fit_type == 'double':
             f = self.gomp_Te_fadd
+            labels =  ['T$_e0$ / \u00B0C', 'E$_A0$ / kJ mol$^{-1}$', 
+                       'T$_e1$ / \u00B0C', 'E$_A1$ / kJ mol$^{-1}$', 'f']
             self.bootstrap_double = Bootstrap_Fits(data, f, 
                                                    self.conv_double_params,
                                                    num_straps)
+            boot = self.bootstrap_double
+        boot.generate_pseudo_datasets()
+        boot.fit_datasets()
 
 class Bootstrap_Fits:
     def __init__(self, data, f, init_ps, num_straps=200, pnames=None):
@@ -1325,8 +1332,23 @@ class Bootstrap_Fits:
             values.
             pnames: list of strings of parameter names
         """
+        from inspect import signature, _empty
         self.data = data
         self.f = f
+        sig = signature(self.f)
+        arg_count = 0
+        for d in [sig.parameters[p].default for p in sig.parameters]:
+            if type(d) is type(_empty):
+                arg_count += 1
+        if arg_count - 1 == len(init_ps):
+            self.unpack_vals = True
+        elif arg_count - 1 < len(init_ps):
+            self.unpack_vals = False
+        else:
+            if len(sig.parameters) - 1 == len(init_ps):
+                self.unpack_vals = True
+            else:
+                raise ValueError(f'Length of init_ps incompatible with {f}')
         self.init_ps = init_ps
         self.num_straps = num_straps  
         self.fitted_ps = []
@@ -1344,16 +1366,55 @@ class Bootstrap_Fits:
         self.pseudo_datasets = self.data[inds]
        
     def residuals(self, guesses, data):
-        args = [data[:, 0]] + list(guesses)
-        return self.f(*args) - data[:, 1]
+        if self.unpack_vals:
+            args = [data[:, 0]] + list(guesses)
+            res = self.f(*args) - data[:, 1]
+        else:
+            res = self.f(data[:, 0], guesses) - data[:, 1]
+        return res
     
     def fit_datasets(self):
+        counts = 0
         for pdset in self.pseudo_datasets:
-            self.fitted_ps.append(leastsq(self.residuals, self.init_ps, 
-                                          args=(pdset))[0])
+            res = leastsq(self.residuals, self.init_ps, args=(pdset))[0]
+            if np.any(res < 0):
+                counts += 1
+                continue
+            self.fitted_ps.append(res)
         self.fitted_ps = np.array(self.fitted_ps)
-        
-        
+        print(f'Of {self.num_straps} attempts, {counts} were rejected as unphysical')
+    
+    def get_param_index(self, param):
+        if isinstance(param, str):
+            i = self.pnames.index(param)
+        else:
+            i = param
+        return i
+    
+    def plot_histogram(self, param, bins=20):
+        if isinstance(self.fitted_ps, list):
+            raise ValueError('Need to run fit_datasets before trying to plot results')
+        i = self.get_param_index(param)
+        fig = plt.figure()
+        ax = fig.add_subplot(111, xlabel=f'{self.pnames[i]}')
+        ax.hist(self.fitted_ps[:, i], bins)
+        fig.tight_layout()
+        return fig, ax
+    
+    def plot_correlations(self, param0=None, param1=None, bins=20):
+        fig = plt.figure()
+        if param0 is not None and param1 is not None:
+            i0 = self.get_param_index(param0)
+            i1 = self.get_param_index(param1)
+            H, xedges, yedges = np.histogram2d(self.fitted_ps[:, i0],
+                                               self.fitted_ps[:, i1], bins)
+            ax = fig.add_subplot(111, xlabel=f'{self.pnames[i0]}',
+                                 ylabel=f'{self.pnames[i1]}')
+            ax.imshow(H, origin='lower', extent=[xedges[0], xedges[-1],
+                                                 yedges[0], yedges[-1]])
+            axes = ax
+        fig.tight_layout()
+        return fig, axes
 
 class TC_Indices:
     def __init__(self, indices, log_data, CRD=False):
