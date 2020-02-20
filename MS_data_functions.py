@@ -1281,15 +1281,15 @@ class Experiment:
             data = np.column_stack((self.av_eq_T, self.conv))
         if fit_type == 'single':
             f = self.gomp_Te
-            labels =  [u'T$_e$ / \u00B0C', 'E$_A$ / kJ mol$^{-1}$']
+            labels =  [u'T$_e$ / K', 'E$_A$ / kJ mol$^{-1}$']
             self.bootstrap_single = Bootstrap_Fits(data, f, 
                                                    self.conv_single_params,
                                                    num_straps, labels)
             boot = self.bootstrap_single
         elif fit_type == 'double':
             f = self.gomp_Te_fadd
-            labels =  ['T$_e0$ / \u00B0C', 'E$_A0$ / kJ mol$^{-1}$', 
-                       'T$_e1$ / \u00B0C', 'E$_A1$ / kJ mol$^{-1}$', 'f']
+            labels =  ['T$_e0$ / K', 'E$_A0$ / kJ mol$^{-1}$', 
+                       'T$_e1$ / K', 'E$_A1$ / kJ mol$^{-1}$', 'f']
             self.bootstrap_double = Bootstrap_Fits(data, f, 
                                                    self.conv_double_params,
                                                    num_straps)
@@ -1346,22 +1346,19 @@ class Bootstrap_Fits:
        
     def residuals(self, guesses, data):
         if self.unpack_vals:
-            args = [data[:, 0]] + list(guesses)
+            args = [data[:, 0] + 273.15] + list(guesses)
             res = self.f(*args) - data[:, 1]
         else:
-            res = self.f(data[:, 0], guesses) - data[:, 1]
-        return res
+            res = self.f(data[:, 0] + 273.15, guesses) - data[:, 1]
+        return np.sum(res**2)
     
     def fit_datasets(self):
-        counts = 0
+        bounds = [(1e-8, None) for ip in self.init_ps]
         for pdset in self.pseudo_datasets:
-            res = opt.leastsq(self.residuals, self.init_ps, args=(pdset))[0]
-            if np.any(res < 0):
-                counts += 1
-                continue
-            self.fitted_ps.append(res)
+            res = opt.minimize(self.residuals, self.init_ps, args=(pdset),
+                               bounds=bounds)
+            self.fitted_ps.append(res.x)
         self.fitted_ps = np.array(self.fitted_ps)
-        print(f'Of {self.num_straps} attempts, {counts} were rejected as unphysical')
     
     def get_param_index(self, param):
         if isinstance(param, str):
