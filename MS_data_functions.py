@@ -3,7 +3,6 @@
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from scipy.optimize import leastsq
 import pandas as pd
 import scipy.optimize as opt
 
@@ -198,7 +197,7 @@ class FragmentationRatios:
             err[4] = np.abs(d19 - x * (1 - p1 - 2 * y * p1))
             err[5] = np.abs(d20 - (1 - x) * (1 - 3 * y * p1))
             return err
-        params = leastsq(residuals, guesses, args=(probs, nd3_new))
+        params = opt.leastsq(residuals, guesses, args=(probs, nd3_new))
         p = list(params[0])
         fit14 = (1 - p[0]) * 6 * p[1]**3 * p1 * p2 * p3
         fit16 = (1 - p[0]) * 6 * p[1]**2 * p1 * p2 * (1 - p[1] * p3)
@@ -517,7 +516,7 @@ class Experiment:
                      ar_s1
             err = np.abs(M - M_calc)
             return err
-        params = leastsq(residuals, guesses, args=(sfs, Is, M))
+        params = opt.leastsq(residuals, guesses, args=(sfs, Is, M))
         p = list(params[0])
         #Now adjust for ionization factors
         p = [p[0] / I_ar, p[1] / I_n2, p[2] / I_nh3, p[3] / I_h2]
@@ -836,7 +835,7 @@ class Experiment:
                      ar_s1
             err = np.abs(M - M_calc)
             return err
-        params = leastsq(residuals, guesses, args=(sfs, Is, M))
+        params = opt.leastsq(residuals, guesses, args=(sfs, Is, M))
         p = list(params[0])
         #Now adjust for ionization factors
         p = [p[0] / I_ar, p[1] / I_n2, p[2] / I_nd3, p[3] / I_d2]
@@ -1158,23 +1157,12 @@ class Experiment:
             Te, EA = guesses
             Ccalc = self.gomp_Te(T, Te, EA)
             err = C - Ccalc
-            return err
-        params = opt.leastsq(residuals, guesses, args=(T, C, R), 
-                             full_output=True)
-        if type(params[1]) == type(None):
-            cov_p = np.ones((2, 2)) * np.inf
-        else:
-            s_sq = (params[2]['fvec']**2).sum() / (len(params[2]['fvec']) -\
-                                                   len(params[0]))
-            cov_p = params[1] * s_sq
-#        s_sq_sig = ((params[2]['fvec'] / 0.01)**2).sum() / \
-#                   (len(params[2]['fvec']) - len(params[0]))
-        p = params[0]
-        self.conv_single_std = np.diagonal(cov_p)**0.5
-        self.conv_single_params = p
-        self.conv_single_cov = params[1]
-        self.conv_single_fit = self.gomp_Te(self.Tfit, p[0], p[1])
-        self.conv_single_corr = self.cov2corr(params[1])
+            return np.sum(err**2)
+        bounds = [(0, None) for g in guesses]
+        res = opt.minimize(residuals, np.array(guesses), args=(T, C, R),
+                           bounds=bounds)
+        self.conv_single_params = res.x
+        self.conv_single_fit = self.gomp_Te(self.Tfit, res.x[0], res.x[1])
     
     def fit_double_Te(self, guesses, use_conv2=False):
         """Return best Te1, EA1, Te2, EA2, f parameters for function to data
@@ -1194,21 +1182,12 @@ class Experiment:
         def residuals(guesses, T, C):
             Ccalc = self.gomp_Te_fadd(T, guesses)
             err = C - Ccalc
-            return err
-        params = opt.leastsq(residuals, guesses, args=(T, C), full_output=True)
-        if type(params[1]) == type(None):
-            cov_p = np.ones((2, 2)) * np.inf
-        else:
-            s_sq = (params[2]['fvec']**2).sum() / (len(params[2]['fvec']) -\
-                                                   len(params[0]))
-            cov_p = params[1] * s_sq
-        p = params[0]
-        self.conv_double_std = np.diagonal(cov_p)**0.5
-        self.conv_double_params = p
-        self.conv_double_cov = params[1]
-        self.conv_double_fit = self.gomp_Te_fadd(self.Tfit, p)
-        if params[1] is not None:
-            self.conv_double_corr = self.cov2corr(params[1])
+            return np.sum(err**2)
+        bounds = [(0, None) for g in guesses]
+        res = opt.minimize(residuals, np.array(guesses), args=(T, C),
+                           bounds=bounds)
+        self.conv_double_params = res.x
+        self.conv_double_fit = self.gomp_Te_fadd(self.Tfit, res.x)
     
     def cov2corr(self, A):
         d = np.sqrt(np.matrix(A).diagonal())
@@ -1376,7 +1355,7 @@ class Bootstrap_Fits:
     def fit_datasets(self):
         counts = 0
         for pdset in self.pseudo_datasets:
-            res = leastsq(self.residuals, self.init_ps, args=(pdset))[0]
+            res = opt.leastsq(self.residuals, self.init_ps, args=(pdset))[0]
             if np.any(res < 0):
                 counts += 1
                 continue
