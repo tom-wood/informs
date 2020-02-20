@@ -1378,19 +1378,38 @@ class Bootstrap_Fits:
         return fig, ax
     
     def plot_correlations(self, param0=None, param1=None, bins=20):
-        fig = plt.figure()
         if param0 is not None and param1 is not None:
             i0 = self.get_param_index(param0)
             i1 = self.get_param_index(param1)
             H, xedges, yedges = np.histogram2d(self.fitted_ps[:, i0],
                                                self.fitted_ps[:, i1], bins)
+            fig = plt.figure()
             ax = fig.add_subplot(111, xlabel=f'{self.pnames[i0]}',
                                  ylabel=f'{self.pnames[i1]}')
-            ax.imshow(H, origin='lower', extent=[xedges[0], xedges[-1],
-                                                 yedges[0], yedges[-1]])
+            extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
+            aspect = (extent[1] - extent[0]) / (extent[3] - extent[2])
+            ax.imshow(H, origin='lower', extent=extent, aspect=aspect)
+            fig.tight_layout()
             axes = ax
-        fig.tight_layout()
-        return fig, axes
+            figs = fig
+        else:
+            figs = []
+            axes = []
+            for i0, p0 in enumerate(self.pnames):
+                for i1, p1 in enumerate(self.pnames):
+                    if i1 <= i0:
+                        continue
+                    H, xedges, yedges = np.histogram2d(self.fitted_ps[:, i0],
+                                               self.fitted_ps[:, i1], bins)
+                    extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
+                    aspect = (extent[1] - extent[0]) / (extent[3] - extent[2])
+                    fig = plt.figure()
+                    ax = fig.add_subplot(111, xlabel=f'{p0}', ylabel=f'{p1}')
+                    ax.imshow(H, origin='lower', extent=extent, aspect=aspect)
+                    fig.tight_layout()
+                    figs.append(fig)
+                    axes.append(ax)
+        return figs, axes
 
 class TC_Indices:
     def __init__(self, indices, log_data, CRD=False):
