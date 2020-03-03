@@ -1350,19 +1350,18 @@ class Bootstrap_Fits:
         else:
             pns, ips, bps, buns = [], [], [], []
             for pn, ip, bp in zip(self.pnames, self.init_ps, self.fitted_ps.T):
-                pns.append(f'{pn.split("/")[0]}')
+                pns.append(f'{pn.split("/")[0].strip()}')
                 ips.append(f'{ip:.4f}')
                 bps.append(f'{bp.mean():.4f}')
                 buns.append(f'{bp.std():.4f}')
             starters = ['Param', 'Initial val', 'Boot val', 'Boot std']
-            for s, n in zip(starters, [pns, ips, bps, buns]):
-                n.insert(0, s)
+            for st, n in zip(starters, [pns, ips, bps, buns]):
+                n.insert(0, st)
             str_lengths = [[len(strinst) for strinst in lst] for lst in
                             [pns, ips, bps]]
-            print(str_lengths)
             str_lengths = np.array(str_lengths, dtype=int)
             all_tabs = str_lengths.max(axis=1) // 8 - \
-                       str_lengths // 8 + 1
+                       str_lengths.T // 8 + 1
             for pn, ip, bp, bun, tabs in zip(pns, ips, bps, buns, all_tabs):
                 s += pn
                 s += tabs[0] * '\t'
