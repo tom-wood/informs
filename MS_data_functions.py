@@ -318,7 +318,8 @@ class Experiment:
         self.conv2 = None
         self.conv2_unc = None
         self.Tfit = None
-        self.conv_fit = None
+        self.conv_single_fit = None
+        self.conv_double_fit = None
         self.conv_single_params = None
         self.conv_single_cov = None
         self.conv_single_std = None
@@ -1292,7 +1293,7 @@ class Experiment:
                        'T$_e1$ / K', 'E$_A1$ / kJ mol$^{-1}$', 'f']
             self.bootstrap_double = Bootstrap_Fits(data, f, 
                                                    self.conv_double_params,
-                                                   num_straps)
+                                                   num_straps, labels)
             boot = self.bootstrap_double
         boot.generate_pseudo_datasets()
         boot.fit_datasets()
@@ -1338,6 +1339,40 @@ class Bootstrap_Fits:
                 self.pnames = list(pnames)[:len(init_ps)]
         else:
             self.pnames = [''] * len(init_ps)
+        self.pseudo_datasets = []
+    
+    def __str__(self):
+        s = 'Bootstrap_Fits instance:\n'
+        s += f'Data of shape {self.data.shape}\n'
+        s += f'Number of generated datasets = {len(self.pseudo_datasets)}\n'
+        if isinstance(self.fitted_ps, list):
+            s += 'Generated datasets not yet fitted'
+        else:
+            pns, ips, bps, buns = [], [], [], []
+            for pn, ip, bp in zip(self.pnames, self.init_ps, self.fitted_ps.T):
+                pns.append(f'{pn.split("/")[0]}')
+                ips.append(f'{ip:.4f}')
+                bps.append(f'{bp.mean():.4f}')
+                buns.append(f'{bp.std():.4f}')
+            starters = ['Param', 'Initial val', 'Boot val', 'Boot std']
+            for s, n in zip(starters, [pns, ips, bps, buns]):
+                n.insert(0, s)
+            str_lengths = [[len(strinst) for strinst in lst] for lst in
+                            [pns, ips, bps]]
+            print(str_lengths)
+            str_lengths = np.array(str_lengths, dtype=int)
+            all_tabs = str_lengths.max(axis=1) // 8 - \
+                       str_lengths // 8 + 1
+            for pn, ip, bp, bun, tabs in zip(pns, ips, bps, buns, all_tabs):
+                s += pn
+                s += tabs[0] * '\t'
+                s += ip
+                s += tabs[1] * '\t'
+                s += bp
+                s += tabs[2] * '\t'
+                s += bun
+                s += '\n'
+        return s
     
     def generate_pseudo_datasets(self): 
         inds = (np.random.rand(self.num_straps, self.data.shape[0]) \
