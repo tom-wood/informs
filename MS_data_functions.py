@@ -1340,6 +1340,8 @@ class Bootstrap_Fits:
         else:
             self.pnames = [''] * len(init_ps)
         self.pseudo_datasets = []
+        self.param_means = []
+        self.param_stds = []
     
     def __str__(self):
         s = 'Bootstrap_Fits instance:\n'
@@ -1393,6 +1395,8 @@ class Bootstrap_Fits:
                                bounds=bounds)
             self.fitted_ps.append(res.x)
         self.fitted_ps = np.array(self.fitted_ps)
+        self.param_means = self.fitted_ps.mean(axis=0)
+        self.param_stds = self.fitted_ps.std(axis=0)
     
     def get_param_index(self, param):
         if isinstance(param, str):
