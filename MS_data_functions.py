@@ -1424,7 +1424,7 @@ class Bootstrap_Fits:
         mean = self.param_means[i]
         sigma = self.param_stds[i]
         if nsigma:
-            vals = vals[np.abs(vals - mean) > sigma * nsigma]
+            vals = vals[np.abs(vals - mean) < sigma * nsigma]
         fig = plt.figure()
         ax = fig.add_subplot(111, xlabel=f'{self.pnames[i]}')  
         ax.hist(vals, bins)
