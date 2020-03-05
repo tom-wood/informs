@@ -1431,18 +1431,36 @@ class Bootstrap_Fits:
         fig.tight_layout()
         return fig, ax
     
-    def plot_correlations(self, param0=None, param1=None, bins=20):
+    def plot_correlations(self, param0=None, param1=None, bins=20, 
+                          ranges=None, nsigma=None):
+        """Plot 2D histogram of correlations of two or more parameters
+        
+        Args:
+            param0: str of parameter name or index of 1st parameter
+            param1: str of parameter name or index of 2nd parameter
+            bins (int): number of bins to histogram
+            ranges: 2x2 array of xedges and yedges to manually set range (use
+            nsigma if a quicker method preferred).
+            nsigma: number of standard deviations either side to plot
+        
+        Returns:
+            fig: pyplot figure instance
+            ax: axes instance
+        """
         if param0 is not None and param1 is not None:
             i0 = self.get_param_index(param0)
             i1 = self.get_param_index(param1)
-            H, xedges, yedges = np.histogram2d(self.fitted_ps[:, i0],
-                                               self.fitted_ps[:, i1], bins)
+            vals0, vals1 = self.fitted_ps[:, i0], self.fitted_ps[:, i1]
+            mean0, mean1 = self.param_means[i0], self.param_means[i1]
+            std0, std1 = self.param_stds[i0], self.param_stds[i1]
+            if nsigma:
+                xedges = [mean0 - nsigma * std0, mean0 + nsigma * std0]
+                yedges = [mean1 - nsigma * std1, mean1 + nsigma * std1]
+                ranges = np.array([xedges, yedges])
             fig = plt.figure()
             ax = fig.add_subplot(111, xlabel=f'{self.pnames[i0]}',
                                  ylabel=f'{self.pnames[i1]}')
-            extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
-            aspect = (extent[1] - extent[0]) / (extent[3] - extent[2])
-            ax.imshow(H, origin='lower', extent=extent, aspect=aspect)
+            ax.hist2d(vals0, vals1, bins, range=ranges)
             fig.tight_layout()
             axes = ax
             figs = fig
@@ -1453,13 +1471,16 @@ class Bootstrap_Fits:
                 for i1, p1 in enumerate(self.pnames):
                     if i1 <= i0:
                         continue
-                    H, xedges, yedges = np.histogram2d(self.fitted_ps[:, i0],
-                                               self.fitted_ps[:, i1], bins)
-                    extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
-                    aspect = (extent[1] - extent[0]) / (extent[3] - extent[2])
+                    vals0, vals1 = self.fitted_ps[:, i0], self.fitted_ps[:, i1]
+                    mean0, mean1 = self.param_means[i0], self.param_means[i1]
+                    std0, std1 = self.param_stds[i0], self.param_stds[i1]
+                    if nsigma:
+                        xedges = [mean0 - nsigma * std0, mean0 + nsigma * std0]
+                        yedges = [mean1 - nsigma * std1, mean1 + nsigma * std1]
+                        ranges = np.array([xedges, yedges])
                     fig = plt.figure()
                     ax = fig.add_subplot(111, xlabel=f'{p0}', ylabel=f'{p1}')
-                    ax.imshow(H, origin='lower', extent=extent, aspect=aspect)
+                    ax.hist2d(vals0, vals1, bins, range=ranges)
                     fig.tight_layout()
                     figs.append(fig)
                     axes.append(ax)
