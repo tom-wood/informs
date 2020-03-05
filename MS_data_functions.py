@@ -1390,7 +1390,10 @@ class Bootstrap_Fits:
     
     def fit_datasets(self):
         bounds = [(1e-8, None) for ip in self.init_ps]
+        if self.pnames[-1] == 'f':
+            bounds[-1] = (0, 1)
         for pdset in self.pseudo_datasets:
+            pdset[:, 1] = 1 - (1 - pdset[:, 1]) / (1 + pdset[:, 1]) 
             res = opt.minimize(self.residuals, self.init_ps, args=(pdset),
                                bounds=bounds)
             self.fitted_ps.append(res.x)
