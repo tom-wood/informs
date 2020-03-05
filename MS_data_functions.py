@@ -1159,7 +1159,7 @@ class Experiment:
             Ccalc = self.gomp_Te(T, Te, EA)
             err = C - Ccalc
             return np.sum(err**2)
-        bounds = [(0, None) for g in guesses[:-1]] + [(0, 1)]
+        bounds = [(0, None) for g in guesses]
         res = opt.minimize(residuals, np.array(guesses), args=(T, C, R),
                            bounds=bounds)
         self.conv_single_params = res.x
@@ -1184,7 +1184,7 @@ class Experiment:
             Ccalc = self.gomp_Te_fadd(T, guesses)
             err = C - Ccalc
             return np.sum(err**2)
-        bounds = [(0, None) for g in guesses]
+        bounds = [(0, None) for g in guesses[:-1]] + [(0, 1)]
         res = opt.minimize(residuals, np.array(guesses), args=(T, C),
                            bounds=bounds)
         self.conv_double_params = res.x
@@ -1405,13 +1405,29 @@ class Bootstrap_Fits:
             i = param
         return i
     
-    def plot_histogram(self, param, bins=20):
+    def plot_histogram(self, param, bins=20, nsigma=None):
+        """Plot histogram of distribution of a parameter
+        
+        Args:
+            param: str of parameter name or index of parameter
+            bins (int): number of bins to histogram
+            nsigma: number of standard deviations either side to plot
+        
+        Returns:
+            fig: pyplot figure instance
+            ax: axes instance
+        """
         if isinstance(self.fitted_ps, list):
             raise ValueError('Need to run fit_datasets before trying to plot results')
         i = self.get_param_index(param)
+        vals = self.fitted_ps[:, i]
+        mean = self.param_means[i]
+        sigma = self.param_stds[i]
+        if nsigma:
+            vals = vals[np.abs(vals - mean) > sigma * nsigma]
         fig = plt.figure()
-        ax = fig.add_subplot(111, xlabel=f'{self.pnames[i]}')
-        ax.hist(self.fitted_ps[:, i], bins)
+        ax = fig.add_subplot(111, xlabel=f'{self.pnames[i]}')  
+        ax.hist(vals, bins)
         fig.tight_layout()
         return fig, ax
     
