@@ -1159,7 +1159,7 @@ class Experiment:
             Ccalc = self.gomp_Te(T, Te, EA)
             err = C - Ccalc
             return np.sum(err**2)
-        bounds = [(0, None) for g in guesses]
+        bounds = [(0, None) for g in guesses[:-1]] + [(0, 1)]
         res = opt.minimize(residuals, np.array(guesses), args=(T, C, R),
                            bounds=bounds)
         self.conv_single_params = res.x
