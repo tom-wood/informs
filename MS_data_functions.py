@@ -1273,6 +1273,14 @@ class Experiment:
             raise ValueError("fit_type should be 'single' or 'double'")
         fits = np.column_stack((self.Tfit - 273.15, f / (2 - f)))
         np.savetxt(sf, fits)
+        
+    def save_conv_pts(self, save_fname, use_conv2=False):
+        sf = self.fpath + save_fname
+        if use_conv2:
+            C = self.conv2
+        else:
+            C = self.conv
+        np.savetxt(sf, np.column_stack((self.av_eq_T, C)))
     
     def bootstrap_fits(self, fit_type='single', num_straps=200,
                        plot_correlations=True, use_conv2=False):
