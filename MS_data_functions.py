@@ -670,7 +670,7 @@ class Experiment:
         fig.tight_layout()
         return fig, ax
 
-    def mspec_fit(time, traces, fits, labels, legend=True, 
+    def mspec_fit(self, time, traces, fits, labels, legend=True, 
                   legend_loc='upper right', xlabel='Time / min', 
                   ylabel='Pressure / %', xlim_left=None, xlim_right=None, 
                   ylim_bottom=None, ylim_top=None, fig_size=(10, 8),
@@ -706,7 +706,7 @@ class Experiment:
         ax.set_ylabel(ylabel)
         plt.tick_params(top=False, right=False)
         if type(colours) == type(None):
-            colours=styles()
+            colours=[f'C{i}' for i in range(10)]
         #make sure everything is in lists
         if type(time) == type(np.array([])):
             if time.ndim == 1:
@@ -780,7 +780,7 @@ class Experiment:
         ax.yaxis.get_major_formatter().set_powerlimits((-3, 4))
         plt.tight_layout()
 
-    def fit_all_justdar(M, sfs, Is, fit_array=True, guesses=None):
+    def fit_all_justdar(self, M, sfs, Is, fit_array=True, guesses=None):
         """Return the best fit (LM) for MS data assuming all deuterated
     
         Args:
@@ -826,7 +826,7 @@ class Experiment:
             d2_s, nd3_s, n2_s, ar_s = sfs
             I_d2, I_nd3, I_n2, I_ar = Is
             g_ar, g_n2, g_nd3, g_d2 = guesses
-            g_ar, g_n2, g_nd3, g_d2 = normalize_coeffs([g_ar, g_n2, g_nd3,
+            g_ar, g_n2, g_nd3, g_d2 = self.normalize_coeffs([g_ar, g_n2, g_nd3,
                                                         g_d2])
             nd3_s1 = np.array(nd3_s[:])
             n2_s1 = np.array(n2_s[:])
@@ -840,7 +840,7 @@ class Experiment:
         p = list(params[0])
         #Now adjust for ionization factors
         p = [p[0] / I_ar, p[1] / I_n2, p[2] / I_nd3, p[3] / I_d2]
-        p = normalize_coeffs(p)
+        p = self.normalize_coeffs(p)
         if fit_array:
             g_ar, g_n2, g_nd3, g_d2 = p
             nd3_s1 = np.array(nd3_s[:])
@@ -851,17 +851,17 @@ class Experiment:
             return guesses, p, guess_M, fit_M
         return guesses, p
     
-    def fit_deuterated_MS_data(times, fracs, time_range=None):
+    def fit_deuterated_MS_data(self, times, fracs, time_range=None):
         mzs2 = [2, 3, 4, 6, 14, 16, 18, 20, 28, 36, 40]
-        nd3_sfs2 = temp_fs(all_sfs.nd3_sfs, mzs2)
-        I2_nd3 = I_factors.I_nd3 * (1 - all_sfs.nd3_sfs[0][1] - \
-                                    all_sfs.nd3_sfs[7][1])
-        n2_sfs2 = temp_fs(all_sfs.n2_sfs, mzs2)
-        I2_n2 = I_factors.I_n2 * (1 - all_sfs.n2_sfs[2][1])
-        ar_sfs2 = temp_fs(all_sfs.ar_sfs, mzs2)
-        I2_ar = I_factors.I_ar
-        d2_sfs2 = temp_fs(all_sfs.d2_sfs, mzs2)
-        I2_d2 = I_factors.I_d2 * (1 - all_sfs.d2_sfs[0][1])
+        nd3_sfs2 = self.temp_fs(self.all_sfs.nd3_sfs, mzs2)
+        I2_nd3 = self.I_factors.I_nd3 * (1 - self.all_sfs.nd3_sfs[0][1] - \
+                                    self.all_sfs.nd3_sfs[7][1])
+        n2_sfs2 = self.temp_fs(self.all_sfs.n2_sfs, mzs2)
+        I2_n2 = self.I_factors.I_n2 * (1 - self.all_sfs.n2_sfs[2][1])
+        ar_sfs2 = self.temp_fs(self.all_sfs.ar_sfs, mzs2)
+        I2_ar = self.I_factors.I_ar
+        d2_sfs2 = self.temp_fs(self.all_sfs.d2_sfs, mzs2)
+        I2_d2 = self.I_factors.I_d2 * (1 - self.all_sfs.d2_sfs[0][1])
         #I2_h2 /= 1.3
         sfs2 = [d2_sfs2, nd3_sfs2, n2_sfs2, ar_sfs2]
         Is2 = [I2_d2, I2_nd3, I2_n2, I2_ar]
@@ -881,10 +881,10 @@ class Experiment:
         for i, col in enumerate(norm_M2[0, :]):
             if i == 0:
                 g, params2[i, :], gM, fit_M2[i, :] = \
-                fit_all_justdar(norm_M2[:, i], sfs2, Is2, guesses=[1, 0, 0, 0])
+                self.fit_all_justdar(norm_M2[:, i], sfs2, Is2, guesses=[1, 0, 0, 0])
             else:
                 g, params2[i, :], gM, fit_M2[i, :] = \
-                fit_all_justdar(norm_M2[:, i], sfs2, Is2, guesses=g)
+                self.fit_all_justdar(norm_M2[:, i], sfs2, Is2, guesses=g)
         params2[params2 < -0.05] = np.nan
         params2[params2 > 1.05] = np.nan
         params2[np.isnan(params2[:, 0]), :] = np.array([np.nan, np.nan, np.nan,
@@ -897,9 +897,9 @@ class Experiment:
                     params2[i] = params2[i - 1]
         return times2, params2
     
-    def fit_all_MS_data(times, fracs, time_range=None):
+    def fit_all_MS_data(self, times, fracs, time_range=None):
         mzs2 = [2, 3, 4, 6, 14, 15, 16, 17, 18, 19, 20, 28, 36, 40]
-        nd3_sfs2 = temp_fs(all_sfs.nd3_sfs, mzs2)
+        nd3_sfs2 = self.temp_fs(self.all_sfs.nd3_sfs, mzs2)
         def mod_I(I, mzs2, sfs):
             factor = 1
             for sf in sfs:
@@ -907,14 +907,14 @@ class Experiment:
                     factor -= sf[1]
             return I * factor
         
-        I2_nd3 = I_factors.I_nd3 * (1 - all_sfs.nd3_sfs[0][1] - \
-                                    all_sfs.nd3_sfs[7][1])
-        n2_sfs2 = temp_fs(all_sfs.n2_sfs, mzs2)
-        I2_n2 = I_factors.I_n2 * (1 - all_sfs.n2_sfs[2][1])
-        ar_sfs2 = temp_fs(all_sfs.ar_sfs, mzs2)
-        I2_ar = I_factors.I_ar
-        d2_sfs2 = temp_fs(all_sfs.d2_sfs, mzs2)
-        I2_d2 = I_factors.I_d2 * (1 - all_sfs.d2_sfs[0][1])
+        I2_nd3 = self.I_factors.I_nd3 * (1 - self.all_sfs.nd3_sfs[0][1] - \
+                                    self.all_sfs.nd3_sfs[7][1])
+        n2_sfs2 = self.temp_fs(self.all_sfs.n2_sfs, mzs2)
+        I2_n2 = self.I_factors.I_n2 * (1 - self.all_sfs.n2_sfs[2][1])
+        ar_sfs2 = self.temp_fs(self.all_sfs.ar_sfs, mzs2)
+        I2_ar = self.I_factors.I_ar
+        d2_sfs2 = self.temp_fs(all_sfs.d2_sfs, mzs2)
+        I2_d2 = self.I_factors.I_d2 * (1 - all_sfs.d2_sfs[0][1])
         #I2_h2 /= 1.3
         sfs2 = [d2_sfs2, nd3_sfs2, n2_sfs2, ar_sfs2]
         Is2 = [I2_d2, I2_nd3, I2_n2, I2_ar]
@@ -934,10 +934,10 @@ class Experiment:
         for i, col in enumerate(norm_M2[0, :]):
             if i == 0:
                 g, params2[i, :], gM, fit_M2[i, :] = \
-                fit_all_justdar(norm_M2[:, i], sfs2, Is2, guesses=[1, 0, 0, 0])
+                self.fit_all_justdar(norm_M2[:, i], sfs2, Is2, guesses=[1, 0, 0, 0])
             else:
                 g, params2[i, :], gM, fit_M2[i, :] = \
-                fit_all_justdar(norm_M2[:, i], sfs2, Is2, guesses=g)
+                self.fit_all_justdar(norm_M2[:, i], sfs2, Is2, guesses=g)
         params2[params2 < -0.05] = np.nan
         params2[params2 > 1.05] = np.nan
         params2[np.isnan(params2[:, 0]), :] = np.array([np.nan, np.nan, np.nan,
