@@ -357,15 +357,15 @@ class Experiment:
         Args:
             sums (int): number of histogram instances to sum (take mean) over
         """
-        with open(csv, 'r') as f:
+        with open(self.csv_fpath, 'r') as f:
             check = False
             for i, line in enumerate(f):
                 if i == 0:
                     continue
                 if check:
-                    l = line.split(',')
-                    if l[3] != 1.:
-                        raise ValueError(f'Expecting first amu=1 not {int(l[3])}')
+                    l = int(line.split(',')[3].strip())
+                    if l != 1:
+                        raise ValueError(f'Expecting first amu=1 not {l}')
                     else:
                         break
                 if line[:7] == '"Cycle"':
