@@ -365,7 +365,7 @@ class Experiment:
                 if check:
                     l = line.split(',')
                     if l[3] != 1.:
-                        raise ValueError(f'Expecting first amu=1 not {int(l[3]}')
+                        raise ValueError(f'Expecting first amu=1 not {int(l[3])}')
                     else:
                         break
                 if line[:7] == '"Cycle"':
