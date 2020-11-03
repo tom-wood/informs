@@ -357,6 +357,19 @@ class Experiment:
         Args:
             sums (int): number of histogram instances to sum (take mean) over
         """
+        with open(csv, 'r') as f:
+            check = False
+            for i, line in enumerate(f):
+                if i == 0:
+                    continue
+                if check:
+                    l = line.split(',')
+                    if l[3] != 1.:
+                        raise ValueError(f'Expecting first amu=1 not {int(l[3]}')
+                    else:
+                        break
+                if line[:7] == '"Cycle"':
+                    check = True
         csv = pd.read_csv(self.csv_fpath, sep=',', header=29, 
                                    usecols=[0, 2, 3, 4])
         cyc_len = int(csv['mass amu'].max())
