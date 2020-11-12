@@ -363,7 +363,7 @@ class Experiment:
                 if i == 0:
                     continue
                 if check:
-                    l = int(line.split(',')[3].strip())
+                    l = int(float(line.split(',')[3].strip()))
                     if l != 1:
                         raise ValueError(f'Expecting first amu=1 not {l}')
                     else:
