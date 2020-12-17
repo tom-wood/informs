@@ -208,19 +208,24 @@ class FragmentationRatios:
         fits = [fit14, fit16, fit17, fit18, fit19, fit20]
         return p, fits
     
-    def self_calibrate(self, gas_type, exp, x_range):
+    def self_calibrate(self, gas_type, exp, x_range, mzs=None, cutoff=0.01):
         """Update the fragmentation ratios for a gas_type for current data
         
         Args:
-            gas_type (str): can (currently) be 'Ar', 'NH3', 'H2', 'N2'
+            gas_type (str): can currently be 'Ar', 'NH3', 'N2' or 'H2'.
             exp: Experiment instance with MS times, amus and fracs defined
             x_range (list): start and stop times to calibrate over; if more than
             one set of times, then order goes s0, e0, s1, e1 etc. where si is
             start time and ei is end time.
+            mzs (list): specific m/z ratios to look at (e.g. if you know 
+            there's an argon impurity, you might wish to exclude those peaks 
+            etc.).
+            cutoff (float): ratio of highest peak within mzs below which to
+            ignore.
         """
         times, amus, fracs = exp.MS_times, exp.MS_amus, exp.MS_fracs
-        x_starts = [np.searchsorted(times[0, :], x) for x in x_range[::2]]
-        x_ends = [np.searchsorted(times[0, :], x) for x in x_range[1::2]]
+        x_starts = np.searchsorted(times[0, :], x_range[::2])
+        x_ends = np.searchsorted(times[0, :], x_range[1::2])
         #work out mz means between those times:
         fracs_reduced = fracs[:, x_starts[0]:x_ends[0]]
         if len(x_starts) > 1:
@@ -228,17 +233,23 @@ class FragmentationRatios:
                 fracs_reduced = np.column_stack((fracs_reduced,
                                                 fracs[:, xs:x_ends[1:][i]]))
         fracs_av = np.mean(fracs_reduced, axis=1)
-        key = gas_type.lower()
-        if key in self.all_sfs.keys():
-            new_coeffs = []
-            for sf in self.all_sfs[key]:
-                av_frac = fracs_av[int(np.where(amus[:, 0] == sf[0])[0])]
-                new_coeffs.append(av_frac)
-            new_coeffs = self.normalize_coeffs(new_coeffs)
-            new_sfs = [(sf[0], new_coeffs[i]) for i, sf in enumerate(self.all_sfs[key])]
-            self.all_sfs[key] = new_sfs
-        else:
-            print("Can't reset sensitivity factors for gas %s." % gas_type)
+        if mzs is None:
+            mzs = amus[:, 0].astype(int)
+        mask = np.ones(len(amus[:, 0])).astype(bool)
+        mask[np.array(mzs) - 1] = False
+        fracs_av[mask] = 0.
+        fracs_av[fracs_av < fracs_av.max() * cutoff] = 0.
+        k = gas_type.lower()
+        if k not in self.all_sfs.keys():
+           self.all_sfs[k] = [(a, 0) for a in mzs if fracs_av[a-1] > 0]
+        new_coeffs = []
+        for sf in self.all_sfs[k]:
+            av_frac = fracs_av[int(np.where(amus[:, 0] == sf[0])[0])]
+            new_coeffs.append(av_frac)
+        new_coeffs = self.normalize_coeffs(new_coeffs)
+        new_sfs = [(sf[0], new_coeffs[i]) for i, sf in 
+                   enumerate(self.all_sfs[k])]
+        self.all_sfs[k] = new_sfs
     
     def save_ratios(self, fname):
         with open(fname, 'w') as f:
